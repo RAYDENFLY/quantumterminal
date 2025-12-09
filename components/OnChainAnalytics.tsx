@@ -287,29 +287,6 @@ export default function OnChainAnalytics() {
             </div>
           </div>
         </div>
-
-        {/* Quick Actions */}
-        <div className="terminal-panel">
-          <div className="flex items-center space-x-2 mb-4">
-            <FontAwesomeIcon icon={faCoins} className="text-yellow-500 w-5 h-5" />
-            <h3 className="terminal-header text-lg">Quick Actions</h3>
-          </div>
-
-          <div className="space-y-2">
-            <button className="w-full text-left px-3 py-2 rounded hover:bg-terminal-bg transition-colors text-sm">
-              📊 View Mempool
-            </button>
-            <button className="w-full text-left px-3 py-2 rounded hover:bg-terminal-bg transition-colors text-sm">
-              ⛽ Gas Tracker
-            </button>
-            <button className="w-full text-left px-3 py-2 rounded hover:bg-terminal-bg transition-colors text-sm">
-              📈 TVL Charts
-            </button>
-            <button className="w-full text-left px-3 py-2 rounded hover:bg-terminal-bg transition-colors text-sm">
-              🔍 Block Explorer
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

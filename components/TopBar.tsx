@@ -7,8 +7,17 @@ import {
   faCubes, 
   faBook,
   faGraduationCap,
-  faBell 
+  faBell,
+  faSignal
 } from '@fortawesome/free-solid-svg-icons';
+import useSWR from 'swr';
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+interface TopBarProps {
+  activeModule: string;
+  setActiveModule: (module: string) => void;
+}
 
 interface TopBarProps {
   activeModule: string;
@@ -16,6 +25,12 @@ interface TopBarProps {
 }
 
 export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
+  // Fetch real news data
+  const { data: newsData } = useSWR('/api/news', fetcher, { refreshInterval: 300000 }); // 5 minutes
+
+  // Fetch Gate.io currency data
+  const { data: coinData } = useSWR('/api/coin-prices', fetcher, { refreshInterval: 60000 }); // 1 minute
+
   const modules = [
     { id: 'market', label: 'Market Data', icon: faChartLine, hotkey: 'ALT+1' },
     { id: 'news', label: 'News', icon: faNewspaper, hotkey: 'ALT+2' },
@@ -69,9 +84,55 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
       <div className="bg-terminal-bg border-t border-terminal-border px-4 py-2 overflow-hidden">
         <div className="flex items-center space-x-4">
           <span className="text-terminal-danger font-bold text-xs uppercase">Breaking</span>
+          <div className="relative overflow-hidden">
+            <div className="flex animate-marquee whitespace-nowrap text-sm text-gray-400">
+              {newsData?.results?.slice(0, 5).map((article: any, index: number) => (
+                <span key={index} className="mr-12 inline-block">
+                  {article.title}
+                </span>
+              ))}
+              {newsData?.results?.slice(0, 5).map((article: any, index: number) => (
+                <span key={`repeat-${index}`} className="mr-12 inline-block">
+                  {article.title}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Coin Prices Ticker */}
+      <div className="bg-terminal-bg border-t border-terminal-border px-4 py-2 overflow-hidden">
+        <div className="flex items-center space-x-4">
+          <FontAwesomeIcon icon={faSignal} className="w-4 h-4 text-terminal-accent" />
           <div className="flex-1 overflow-hidden">
-            <div className="animate-marquee whitespace-nowrap text-sm text-gray-400">
-              Bitcoin reaches new all-time high • Ethereum upgrade scheduled for Q1 2026 • SEC approves new crypto ETFs • Major DeFi protocol launches on Layer 2
+            <div className="animate-marquee whitespace-nowrap text-sm text-gray-400 flex items-center">
+              {coinData?.success ? (
+                <>
+                  {coinData.data.map((coin: any, index: number) => (
+                    <div key={index} className="flex items-center space-x-2 mr-8 inline-flex">
+                      <img
+                        src={coin.image}
+                        alt={coin.symbol}
+                        className="w-4 h-4 rounded-full"
+                      />
+                      <span className="px-1">{coin.symbol.toUpperCase()}: ${(coin.current_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({coin.price_change_percentage_24h >= 0 ? '+' : ''}{(coin.price_change_percentage_24h || 0).toFixed(2)}%)</span>
+                    </div>
+                  ))}
+                  {coinData.data.map((coin: any, index: number) => (
+                    <div key={`repeat-${index}`} className="flex items-center space-x-2 mr-8 inline-flex">
+                      <img
+                        src={coin.image}
+                        alt={coin.symbol}
+                        className="w-4 h-4 rounded-full"
+                      />
+                      <span className="px-1">{coin.symbol.toUpperCase()}: ${(coin.current_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({coin.price_change_percentage_24h >= 0 ? '+' : ''}{(coin.price_change_percentage_24h || 0).toFixed(2)}%)</span>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <span>Loading coin prices...</span>
+              )}
             </div>
           </div>
         </div>

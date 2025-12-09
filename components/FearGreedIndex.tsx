@@ -115,7 +115,20 @@ export default function FearGreedIndex() {
             <span>Neutral</span>
             <span>Extreme Greed</span>
           </div>
-          <div className="h-2 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"></div>
+          <div className="h-2 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 relative">
+            {/* Position indicator */}
+            <div 
+              className="absolute top-0 h-2 w-1 bg-white rounded-full transform -translate-x-1/2 shadow-lg"
+              style={{ left: `${currentValue}%` }}
+            ></div>
+          </div>
+          <div className="flex justify-between text-xs text-gray-500 mt-2">
+            <span>0</span>
+            <span>25</span>
+            <span>50</span>
+            <span>75</span>
+            <span>100</span>
+          </div>
         </div>
       </div>
     </div>

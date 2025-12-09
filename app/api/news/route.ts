@@ -28,14 +28,11 @@ export async function GET() {
             published_at: new Date().toISOString(),
             domain: 'coindesk.com',
             slug: 'bitcoin-surges',
+            link: 'https://www.coindesk.com/markets/bitcoin-surges',
             kind: 'news',
             source: {
               title: 'CoinDesk',
               domain: 'coindesk.com'
-            },
-            votes: {
-              positive: 85,
-              negative: 15
             }
           },
           {
@@ -44,14 +41,11 @@ export async function GET() {
             published_at: new Date(Date.now() - 3600000).toISOString(),
             domain: 'cointelegraph.com',
             slug: 'ethereum-upgrade',
+            link: 'https://cointelegraph.com/news/ethereum-upgrade',
             kind: 'news',
             source: {
               title: 'CoinTelegraph',
               domain: 'cointelegraph.com'
-            },
-            votes: {
-              positive: 92,
-              negative: 8
             }
           },
           {
@@ -60,14 +54,11 @@ export async function GET() {
             published_at: new Date(Date.now() - 7200000).toISOString(),
             domain: 'bloomberg.com',
             slug: 'sec-bitcoin-etf',
+            link: 'https://www.bloomberg.com/crypto',
             kind: 'news',
             source: {
               title: 'Bloomberg',
               domain: 'bloomberg.com'
-            },
-            votes: {
-              positive: 78,
-              negative: 22
             }
           },
           {
@@ -76,14 +67,11 @@ export async function GET() {
             published_at: new Date(Date.now() - 10800000).toISOString(),
             domain: 'defipulse.com',
             slug: 'defi-tvl-growth',
+            link: 'https://www.defipulse.com/',
             kind: 'news',
             source: {
               title: 'DeFi Pulse',
               domain: 'defipulse.com'
-            },
-            votes: {
-              positive: 88,
-              negative: 12
             }
           },
           {
@@ -92,14 +80,11 @@ export async function GET() {
             published_at: new Date(Date.now() - 14400000).toISOString(),
             domain: 'reuters.com',
             slug: 'bank-crypto-custody',
+            link: 'https://www.reuters.com/business/finance/',
             kind: 'news',
             source: {
               title: 'Reuters',
               domain: 'reuters.com'
-            },
-            votes: {
-              positive: 65,
-              negative: 35
             }
           }
         ]
@@ -127,14 +112,11 @@ export async function GET() {
           published_at: pubDateMatch ? new Date(pubDateMatch[1]).toISOString() : new Date().toISOString(),
           domain: new URL(linkMatch[1]).hostname,
           slug: Math.random().toString(36).substr(2, 9),
+          link: linkMatch[1],
           kind: 'news',
           source: {
             title: new URL(linkMatch[1]).hostname,
             domain: new URL(linkMatch[1]).hostname
-          },
-          votes: {
-            positive: Math.floor(Math.random() * 100),
-            negative: Math.floor(Math.random() * 20)
           }
         });
       }
