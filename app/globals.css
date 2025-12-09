@@ -543,3 +543,17 @@
 .animate-marquee:hover {
   animation-play-state: paused;
 }
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .animate-marquee {
+    animation-duration: 20s; /* Faster on mobile for better UX */
+  }
+  
+  /* Pause marquee on mobile for better readability */
+  @media (hover: none) and (pointer: coarse) {
+    .animate-marquee {
+      animation-play-state: paused;
+    }
+  }
+}
