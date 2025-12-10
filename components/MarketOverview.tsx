@@ -23,6 +23,13 @@ export default function MarketOverview() {
     { refreshInterval: 60000 }
   );
 
+  // Fetch exchange inflow data
+  const { data: inflowData } = useSWR(
+    '/api/exchange-inflow',
+    fetcher,
+    { refreshInterval: 300000 } // 5 minutes
+  );
+
   const formatNumber = (num: number): string => {
     if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
     if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
@@ -53,11 +60,11 @@ export default function MarketOverview() {
     <div className="terminal-panel">
       <h2 className="terminal-header">📊 Global Market Overview</h2>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {/* Total Market Cap */}
         <div>
           <div className="text-xs text-gray-500 mb-1">Total Market Cap</div>
-          <div className="text-2xl font-bold text-terminal-accent">
+          <div className="text-lg lg:text-2xl font-bold text-terminal-accent">
             {formatNumber(marketData.total_market_cap.usd)}
           </div>
           <div className={`text-sm flex items-center space-x-1 mt-1 ${isPositive ? 'price-up' : 'price-down'}`}>
@@ -69,7 +76,7 @@ export default function MarketOverview() {
         {/* 24h Volume */}
         <div>
           <div className="text-xs text-gray-500 mb-1">24h Volume</div>
-          <div className="text-2xl font-bold">
+          <div className="text-lg lg:text-2xl font-bold">
             {formatNumber(marketData.total_volume.usd)}
           </div>
           <div className="text-sm text-gray-500 mt-1">Trading Activity</div>
@@ -78,7 +85,7 @@ export default function MarketOverview() {
         {/* BTC Dominance */}
         <div>
           <div className="text-xs text-gray-500 mb-1">BTC Dominance</div>
-          <div className="text-2xl font-bold text-orange-400">
+          <div className="text-lg lg:text-2xl font-bold text-orange-400">
             {marketData.market_cap_percentage.btc.toFixed(2)}%
           </div>
           <div className="w-full bg-terminal-bg rounded-full h-2 mt-2">
@@ -92,7 +99,7 @@ export default function MarketOverview() {
         {/* ETH Dominance */}
         <div>
           <div className="text-xs text-gray-500 mb-1">ETH Dominance</div>
-          <div className="text-2xl font-bold text-blue-400">
+          <div className="text-lg lg:text-2xl font-bold text-blue-400">
             {marketData.market_cap_percentage.eth.toFixed(2)}%
           </div>
           <div className="w-full bg-terminal-bg rounded-full h-2 mt-2">
@@ -101,6 +108,15 @@ export default function MarketOverview() {
               style={{ width: `${marketData.market_cap_percentage.eth}%` }}
             ></div>
           </div>
+        </div>
+
+        {/* Total Coin Inflow */}
+        <div>
+          <div className="text-xs text-gray-500 mb-1">Exchange Inflow</div>
+          <div className="text-lg lg:text-2xl font-bold text-green-400">
+            {inflowData ? formatNumber(inflowData.totalInflow || 0) : 'Loading...'}
+          </div>
+          <div className="text-sm text-gray-500 mt-1">24h Total</div>
         </div>
       </div>
     </div>
