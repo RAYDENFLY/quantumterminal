@@ -1,203 +1,203 @@
-Judul: Quantum Terminal - Crypto Data & Research Platform Bergaya Bloomberg Terminal
+# Quantum Terminal
+
+A professional cryptocurrency trading dashboard inspired by Bloomberg Terminal, built with Next.js, React, and TypeScript. Features real-time market data, news aggregation, on-chain analytics, and educational resources.
+
+![Quantum Terminal Preview](https://via.placeholder.com/800x400/1a1a1a/00ff88?text=Quantum+Terminal+Preview)
+
+## ✨ Features
+
+### 🏠 Main Dashboard
+- **Real-time Market Overview**: Global crypto market data with 24h changes
+- **Top Gainers/Losers**: Live price movements and volume data
+- **Trading Signals**: Educational signals with risk management (for informational purposes only)
+- **Market Updates**: Social media style posts with market analysis
+
+### 📰 News & Information
+- **Breaking News Ticker**: Real-time headlines from CoinDesk RSS feed
+- **Coin Prices Ticker**: Live price updates with icons and percentage changes
+- **News Feed**: Clickable news articles with pagination (7 items per page)
+- **Fear & Greed Index**: Market sentiment indicator with historical data
+
+### 📊 On-Chain Analytics
+- **Bitcoin Analytics**: Network statistics, fees, and market data
+- **Ethereum Data**: Gas prices, staking information, and network metrics
+- **TVL Data**: Total Value Locked across DeFi protocols
+- **Whale Tracking**: Large wallet movements and alerts
+
+### 📚 Research & Learning
+- **Research Papers**: Curated collection of crypto research papers
+- **Learning Center**: Educational resources for all skill levels
+- **Market Analysis**: Altcoin season indicators and Bitcoin dominance charts
+
+### 🎨 UI/UX Features
+- **Terminal Theme**: Dark professional interface inspired by Bloomberg Terminal
+- **Responsive Design**: Optimized for desktop and mobile devices
+- **Keyboard Navigation**: Hotkeys for quick module switching (Alt+1, Alt+2, etc.)
+- **Smooth Animations**: Marquee effects for tickers and transitions
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/quantumterm.git
+   cd quantumterm
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Environment Setup**
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   The application works without API keys but will show limited data. For full functionality, add these optional API keys to `.env.local`:
+
+   ```env
+   # Optional: CoinGecko API for enhanced market data
+   COINGECKO_API_KEY=your_coingecko_key
+
+   # Optional: Additional data sources
+   COVALENT_API_KEY=your_covalent_key
+   DEBANK_API_KEY=your_debank_key
+   ```
+
+4. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+5. **Open your browser**
+   ```
+   http://localhost:3000
+   ```
+
+### Build for Production
+
+```bash
+npm run build
+npm start
+```
+
+## 🛠️ Tech Stack
+
+- **Framework**: Next.js 16 with Turbopack
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS with custom terminal theme
+- **State Management**: React hooks with SWR for data fetching
+- **Icons**: Font Awesome
+- **Data Sources**:
+  - CoinGecko API (market data)
+  - CoinDesk RSS (news feed)
+  - Alternative.me (Fear & Greed Index)
+  - Mempool.space (Bitcoin fees)
+  - Blockchain.com (Bitcoin stats)
+  - DeFi Llama (TVL data)
 
-Deskripsi Umum:
-Buatkan aplikasi web terminal crypto dengan antarmuka hitam/abu-abu gelap bergaya Bloomberg Terminal yang menampilkan berbagai data crypto secara real-time, research papers, market indicators, dan learning resources. Platform ini bersifat informatif (bukan untuk trading langsung) dengan fokus pada agregasi data dan analisis pasar crypto.
+## 📁 Project Structure
 
-FITUR UTAMA & MODUL:
-1. TAMPILAN UTAMA & LAYOUT
-Interface: Tailwindcss, FOnt awesome animehjs 
+```
+quantumterm/
+├── app/
+│   ├── api/                 # API routes for data fetching
+│   ├── components/          # React components
+│   │   ├── TopBar.tsx      # Header with tickers
+│   │   ├── MarketOverview.tsx
+│   │   ├── NewsFeed.tsx
+│   │   └── ...
+│   ├── globals.css         # Global styles and animations
+│   └── page.tsx            # Main page component
+├── public/                 # Static assets
+├── tailwind.config.js      # Tailwind configuration
+└── package.json
+```
 
-Hotkeys keyboard untuk navigasi cepat (contoh: ALT+1 untuk Market Data, ALT+2 untuk News, dll)
+## 🎯 Key Components
 
-Timeframe selector (1H, 24H, 7D, 30D, 1Y, All)
+### TopBar Component
+- Breaking news ticker with smooth marquee animation
+- Coin prices ticker with real-time updates
+- Navigation menu with keyboard shortcuts
 
-2. OCHAIN DATA MODULE
-Real-time blockchain metrics (transactions per second, gas fees, active addresses)
+### NewsFeed Component
+- Real-time news from CoinDesk RSS
+- Pagination with 7 items per page
+- Clickable articles that open in new tabs
+- Clean, sentiment-free presentation
 
-On-chain indicators (NVT Ratio, MVRV Z-Score, SOPR, Puell Multiple)
+### Market Overview
+- Global market statistics
+- Top performers and losers
+- Trading signals (educational only)
+- Market sentiment indicators
 
-Whale tracker dengan alert untuk transaksi besar
+## ⚠️ Disclaimer
 
-Exchange flow (inflow/outflow dari exchange)
+**FOR INFORMATIONAL AND EDUCATIONAL PURPOSES ONLY**
 
-3. RESEARCH PAPER MODULE
-Database research papers crypto dari ArXiv, SSRN, dan sumber akademis
+This platform is not financial advice. All trading signals and market analysis are for educational purposes only. Always do your own research and consult with financial professionals before making investment decisions.
 
-Filter berdasarkan kategori (DeFi, Bitcoin, Ethereum, Scaling, Security)
+**Risk Warning**: Cryptocurrency trading involves substantial risk of loss and is not suitable for every investor.
 
-Summary otomatis dengan AI untuk setiap paper
+## 📊 Data Sources
 
-Citation network visualization
+Data provided by:
+- CoinGecko (prices, market data)
+- CoinDesk (news feed)
+- Alternative.me (Fear & Greed Index)
+- Mempool.space (Bitcoin network fees)
+- Blockchain.com (Bitcoin statistics)
+- DeFi Llama (Total Value Locked)
 
-4. NEWS AGGREGATOR
-Real-time news feed dari 20+ sumber crypto (CoinDesk, Cointelegraph, The Block, dll)
+## 🤝 Contributing
 
-Sentiment analysis dengan label (Bullish/Bearish/Neutral)
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-Filter berdasarkan coin/token tertentu
+## 📝 License
 
-Breaking news ticker di bagian atas terminal
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-5. MARKET UPDATE DASHBOARD
-Global crypto market cap dengan perubahan 24h
+## 🌟 Open Source & Support
 
-Top gainers/losers dengan volume abnormal
+**Quantum Terminal is 100% open source and free to use!** 🎉
 
-Heatmap sektor crypto (DeFi, NFT, Layer1, Layer2, Meme, dll)
+If you find this project helpful and want to support its development:
 
-Futures data (funding rates, open interest)
+### 💝 Ways to Support
+- **⭐ Star this repository** on GitHub
+- **🐛 Report bugs** or **💡 suggest features** via Issues
+- **🔧 Contribute code** through Pull Requests
+- **📢 Share** with your crypto community
+- **💰 Donate** to support ongoing development
 
-6. LEARNING RESOURCES CENTER
-Interactive tutorials (on-chain analysis, technical analysis dasar)
+### 💰 Donation Options
+- **BNB (BNB Smart Chain)**: `0xD4233500BAE4973782c5eaA427A667ABd6FE9e5f`
+- **GitHub Sponsors**: [Support on GitHub](https://github.com/sponsors/raydenfly)
 
-Glossary istilah crypto dengan contoh
+Your support helps maintain and improve this educational platform! 🙏
 
-Video library dari konferensi crypto terkemuka
+## 🙏 Acknowledgments
 
-Pathway learning untuk berbagai level (beginner, intermediate, advanced)
+- Inspired by Bloomberg Terminal design
+- Built with Next.js and the amazing React ecosystem
+- Data provided by various cryptocurrency APIs and services
 
-7. MARKET INDICATORS PANEL
-CMC Crypto Fear & Greed Index dengan visualisasi historis
+## 📞 Contact
 
-CMC Altcoin Season Index dengan chart siklus musim
+For questions or suggestions, please open an issue on GitHub.
 
-Crypto Market Cycle Indicators (halving cycles, rainbow chart)
+---
 
-Bitcoin Dominance chart dengan overlay altcoin dominance
-
-8. SIGNAL TRADING MODULE (HANYA INFORMATIF)
-Signal berdasarkan konfluensi indikator (on-chain + technical)
-
-Risk score untuk setiap signal (1-5)
-
-Historical performance tracker
-
-CATATAN: Hanya untuk tujuan edukasi, dengan disclaimer jelas
-
-SPESIFIKASI TEKNIS:
-Frontend:
-React.js / Next.js dengan TypeScript
-
-Charting library: TradingView Lightweight Charts atau D3.js
-
-UI Components: ag-Grid untuk tabel data, React Grid Layout untuk panel
-
-Styling: Tailwind CSS dengan tema gelap
-
-Backend:
-Node.js/Express atau Python FastAPI
-
-WebSocket untuk real-time data
-
-Database: PostgreSQL untuk data historis, Redis untuk caching
-
-Scheduled jobs untuk update data setiap 1-5 menit
-
-Integrasi API:
-CoinMarketCap API (pro plan diperlukan)
-
-Glassnode untuk on-chain data
-
-Messari untuk research & metrics
-
-CryptoPanic atau LunarCrush untuk news & social sentiment
-
-Coingecko API sebagai fallback
-
-Arsitektur Data:
-Data pipeline untuk mengumpulkan, memproses, dan menyimpan data
-
-Caching layer untuk performa optimal
-
-Sistem alert untuk data anomali
-
-Backup database harian
-
-PERSYARATAN NON-TEKNIS:
-Lisensi & Open Source:
-MIT License untuk kode
-
-Dokumentasi lengkap di README.md
-
-Contribution guidelines untuk kontributor eksternal
-
-Roadmap publik untuk pengembangan
-
-Keamanan & Privasi:
-Tidak memerlukan login untuk data publik
-
-Tidak menyimpan data pribadi pengguna
-
-Rate limiting untuk API calls
-
-Audit keamanan kode berkala
-
-Dokumentasi:
-API documentation dengan Swagger/OpenAPI
-
-User guide lengkap dengan screenshot
-
-Video tutorial penggunaan fitur
-
-FAQ section
-
-Deployment:
-Docker containerization
-
-CI/CD pipeline dengan GitHub Actions
-
-Monitoring dengan Prometheus/Grafana
-
-Hosting: VPS atau cloud provider
-
-ROADMAP FASE PENGEMBANGAN:
-Fase 1 (MVP - 2-3 bulan):
-
-Tampilan dasar terminal
-
-Market data & news agregator
-
-Fear & Greed Index + Bitcoin Dominance
-
-Fase 2 (3-4 bulan):
-
-On-chain data module
-
-Research paper aggregator
-
-Learning resources center
-
-Fase 3 (2-3 bulan):
-
-Signal module (informatif)
-
-Advanced charting tools
-
-Custom alert system
-
-Fase 4 (ongoing):
-
-Mobile responsive version
-
-Community features
-
-Plugin/extension system
-
-INSPIRASI DESAIN:
-Bloomberg Terminal (aesthetic)
-
-CoinMarketCap Pro (data presentation)
-
-TradingView (charting interface)
-
-Glassnode Studio (on-chain analytics)
-
-CATATAN PENTING:
-
-Platform ini murni informasional dan edukasional
-
-Selalu sertakan disclaimer bahwa ini bukan financial advice
-
-Implementasikan sistem attribution untuk semua data source
-
-Pertimbangkan monetization melalui API service tier, bukan ads intrusive
+**Quantum Terminal** - Professional Crypto Data & Research Platform
