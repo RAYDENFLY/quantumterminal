@@ -13,11 +13,13 @@ import {
   faBars,
   faTimes,
   faList,
-  faCodeBranch
+  faCodeBranch,
+  faHandHoldingDollar
 } from '@fortawesome/free-solid-svg-icons';
 import useSWR from 'swr';
 import packageJson from '../package.json';
 import ChangelogModal from './ChangelogModal';
+import Link from 'next/link';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -80,6 +82,15 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
 
           {/* Mobile Menu Button & Alerts */}
           <div className="flex items-center space-x-2">
+            <Link
+              href="/donasi"
+              className="hidden md:inline-flex items-center space-x-2 p-2 rounded-md text-gray-400 hover:text-terminal-accent transition-colors"
+              title="Donasi"
+            >
+              <FontAwesomeIcon icon={faHandHoldingDollar} className="w-5 h-5" />
+              <span className="hidden lg:inline text-sm">Donasi</span>
+            </Link>
+
             <button
               onClick={() => setIsChangelogOpen(true)}
               className="hidden md:inline-flex items-center space-x-2 p-2 rounded-md text-gray-400 hover:text-terminal-accent transition-colors"
@@ -127,6 +138,15 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
               ))}
             </nav>
             <div className="mt-4 pt-4 border-t border-terminal-border">
+              <Link
+                href="/donasi"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="w-full p-3 rounded-md text-gray-400 hover:text-terminal-accent transition-colors flex items-center space-x-3"
+              >
+                <FontAwesomeIcon icon={faHandHoldingDollar} className="w-4 h-4" />
+                <span>Donasi</span>
+              </Link>
+
               <button
                 onClick={() => {
                   setIsChangelogOpen(true);

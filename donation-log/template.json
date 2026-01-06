@@ -1,0 +1,41 @@
+{
+  "period": "2026-01",
+  "network": "BSC",
+  "donationWallet": "0xD4233500BAE4973782c5eaA427A667ABd6FE9e5f",
+  "summary": {
+    "startingBalanceBNB": 0,
+    "totalInBNB": 0,
+    "totalOutBNB": 0,
+    "endingBalanceBNB": 0,
+    "statement": "Totals are verifiable via tx hashes + explorer history. This log adds spending categories and purpose descriptions."
+  },
+  "outgoing": [
+    {
+      "txHash": "0x...",
+      "date": "2026-01-06T12:00:00.000Z",
+      "amountBNB": 0.12,
+      "category": "project",
+      "purpose": "VPS renewal (monthly hosting)",
+      "counterparty": "optional-public-address-or-label",
+      "evidence": {
+        "type": "redacted_invoice",
+        "url": "https://example.com/invoice-redacted.pdf"
+      }
+    },
+    {
+      "txHash": "0x...",
+      "date": "2026-01-15T09:00:00.000Z",
+      "amountBNB": 0.2,
+      "category": "exchange_transfer",
+      "purpose": "Transfer to Bitunix for operational conversion (server/tools)",
+      "counterparty": "Bitunix (deposit address)",
+      "evidence": null
+    }
+  ],
+  "incoming": {
+    "mode": "summary",
+    "explorerUrl": "https://bscscan.com/address/0xD4233500BAE4973782c5eaA427A667ABd6FE9e5f"
+  },
+  "notes": "Optional extra notes for the month.",
+  "publishedAt": "2026-01-31T23:59:59.000Z"
+}

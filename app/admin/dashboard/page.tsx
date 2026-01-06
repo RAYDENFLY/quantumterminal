@@ -18,7 +18,8 @@ import {
   faUniversity,
   faNewspaper,
   faChartLine,
-  faTrash
+  faTrash,
+  faHandHoldingDollar
 } from '@fortawesome/free-solid-svg-icons';
 
 interface DashboardStats {
@@ -292,6 +293,14 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-400">Welcome, {user?.email}</span>
+              <button
+                onClick={() => router.push('/admin/donation-logs')}
+                className="px-3 py-1 bg-terminal-accent text-terminal-bg rounded hover:bg-terminal-accent/90 transition-colors text-sm"
+                title="Manage donation transparency logs"
+              >
+                <FontAwesomeIcon icon={faHandHoldingDollar} className="w-4 h-4 mr-1" />
+                Donation Logs
+              </button>
               <button
                 onClick={() => router.push('/admin/logs')}
                 className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
