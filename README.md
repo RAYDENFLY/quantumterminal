@@ -2,7 +2,7 @@
 
 A professional cryptocurrency trading dashboard inspired by Bloomberg Terminal, built with Next.js, React, and TypeScript. Features real-time market data, news aggregation, on-chain analytics, and educational resources.
 
-![Quantum Terminal Preview](https://media.dihttps://github.com/RAYDENFLY/quantumterminal/blob/main/public/image.png)
+![Quantum Terminal Preview](https://github.com/RAYDENFLY/quantumterminal/blob/main/public/image.png)
 
 ## ✨ Features
 
