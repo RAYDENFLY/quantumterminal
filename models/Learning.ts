@@ -56,7 +56,12 @@ const LearningSchema: Schema = new Schema(
       trim: true,
       validate: {
         validator: function(v: string) {
-          return !v || /^https?:\/\/.+\.pdf$/i.test(v);
+          if (!v) return true; // Optional field
+          // Allow PDF URLs with or without query parameters
+          // Match .pdf extension before query params or at end of URL
+          return /^https?:\/\/.+\.pdf(\?.*)?$/i.test(v) || 
+                 // Or Discord CDN URLs (they serve PDFs even without .pdf extension)
+                 /^https:\/\/cdn\.discord(app)?\.com\/attachments\/.+/i.test(v);
         },
         message: 'Please provide a valid PDF URL'
       }
@@ -66,7 +71,11 @@ const LearningSchema: Schema = new Schema(
       trim: true,
       validate: {
         validator: function(v: string) {
-          return !v || /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i.test(v);
+          if (!v) return true; // Optional field
+          // Allow image URLs with or without query parameters
+          return /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(v) ||
+                 // Or common image hosting services
+                 /^https:\/\/(i\.ibb\.co|cdn\.discord(app)?\.com|imgur\.com|i\.imgur\.com)\/.+/i.test(v);
         },
         message: 'Please provide a valid image URL'
       }

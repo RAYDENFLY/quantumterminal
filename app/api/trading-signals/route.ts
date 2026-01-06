@@ -91,11 +91,26 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    // Validate required fields
-    const { title, author, asset, signal, tradingStyle, conviction, entry, stopLoss } = body;
-    if (!title || !author || !asset || !signal || !tradingStyle || !conviction || !entry || !stopLoss) {
+    // Map form fields to expected API fields
+    const {
+      author, // Now from form
+      asset,
+      direction, // maps to 'signal'
+      tradingStyle,
+      conviction,
+      entryPrice, // maps to 'entry'
+      stopLoss,
+      takeProfit1,
+      takeProfit2,
+      takeProfit3,
+      reasoning, // maps to 'reasoning'
+      image // maps to 'imageUrl'
+    } = body;
+
+    // Validate required fields from form
+    if (!author || !asset || !direction || !tradingStyle || !conviction || !entryPrice || !stopLoss || !reasoning) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: title, author, asset, signal, tradingStyle, conviction, entry, stopLoss' },
+        { success: false, error: 'Missing required fields: author, asset, direction, tradingStyle, conviction, entryPrice, stopLoss, reasoning' },
         { status: 400 }
       );
     }
@@ -108,24 +123,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Generate title automatically
+    const title = `${direction} ${asset} - ${tradingStyle}`;
+
     // Create new trading signal
     const tradingSignal = new TradingSignal({
       title,
-      description: body.description || '',
+      description: `${direction} signal for ${asset} with ${conviction}/10 conviction`,
       author,
       asset: asset.toUpperCase(),
-      signal,
+      signal: direction, // Use direction as signal
       tradingStyle,
       conviction,
       signalStatus: 'active', // Default status, admin can update later
-      entry,
+      entry: entryPrice, // Map entryPrice to entry
       stopLoss,
-      takeProfit1: body.takeProfit1 || '',
-      takeProfit2: body.takeProfit2 || '',
-      takeProfit3: body.takeProfit3 || '',
-      reasoning: body.reasoning || '',
+      takeProfit1: takeProfit1 || '',
+      takeProfit2: takeProfit2 || '',
+      takeProfit3: takeProfit3 || '',
+      reasoning: reasoning || '',
       link: body.link || '',
-      imageUrl: body.image || body.imageUrl || '',
+      imageUrl: image || '',
       tags: body.tags || [],
       messageId: body.messageId || '',
       status: 'pending' // All new submissions start as pending

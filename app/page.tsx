@@ -8,6 +8,7 @@ import FearGreedIndex from '@/components/FearGreedIndex';
 import TopGainersLosers from '@/components/TopGainersLosers';
 import OnChainAnalytics from '@/components/OnChainAnalytics';
 import OnChainTransactions from '@/components/OnChainTransactions';
+import NotificationModal from '@/components/NotificationModal';
 import ResearchPage from '@/components/ResearchPage';
 import LearningPage from '@/components/LearningPage';
 import SubmissionsPage from '@/app/submissions/page';
@@ -22,7 +23,16 @@ export default function Home() {
   const [activeModule, setActiveModule] = useState<string>('market');
   const [showTradingSignalForm, setShowTradingSignalForm] = useState(false);
   const [showMarketUpdateForm, setShowMarketUpdateForm] = useState(false);
+  
+  // Notification modal state
+  const [notification, setNotification] = useState({
+    isOpen: false,
+    type: 'success' as 'success' | 'error' | 'warning' | 'info' | 'loading',
+    title: '',
+    message: ''
+  });
   const [tradingSignalForm, setTradingSignalForm] = useState({
+    author: '',
     asset: '',
     direction: 'LONG',
     tradingStyle: 'swing-trade',
@@ -48,30 +58,48 @@ export default function Home() {
   const { data: tradingSignalsData, mutate: mutateTradingSignals } = useSWR('/api/trading-signals', fetcher, { refreshInterval: 60000 });
 
   // Fetch market updates from database
-  const { data: marketUpdatesData, mutate: mutateMarketUpdates } = useSWR('/api/market-updates', fetcher, { refreshInterval: 60000 });
+  const { data: marketUpdatesData, mutate: mutateMarketUpdates } = useSWR('/api/market-update', fetcher, { refreshInterval: 60000 });
 
   // Fetch research papers from database
   const { data: researchData } = useSWR('/api/research', fetcher, { refreshInterval: 300000 });
 
   // Transform trading signals data for UI
-  const tradingSignals = (tradingSignalsData?.signals || []).map((signal: any) => ({
+  const tradingSignals = (tradingSignalsData?.data || []).map((signal: any) => ({
     ...signal,
-    icon: signal.direction === 'LONG' ? faArrowUp : faArrowDown,
-    color: signal.direction === 'LONG' ? 'text-terminal-success' : 'text-terminal-danger',
-    signal: signal.direction,
+    icon: signal.signal === 'LONG' ? faArrowUp : faArrowDown,
+    color: signal.signal === 'LONG' ? 'text-terminal-success' : 'text-terminal-danger',
+    direction: signal.signal,
     strength: `Author: ${signal.author}`,
     reason: `Conviction: ${signal.conviction}/10`,
     status: signal.signalStatus || 'Running',
-    entry: signal.entryPrice,
+    entry: signal.entry,
     sl: signal.stopLoss,
     tp1: signal.takeProfit1,
     tp2: signal.takeProfit2,
     tp3: signal.takeProfit3
   }));
 
+  // Notification helper function
+  const showNotification = (type: 'success' | 'error' | 'warning' | 'info' | 'loading', title: string, message: string) => {
+    setNotification({
+      isOpen: true,
+      type,
+      title,
+      message
+    });
+  };
+
+  const closeNotification = () => {
+    setNotification(prev => ({ ...prev, isOpen: false }));
+  };
+
   // Handle trading signal form submission
   const handleTradingSignalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Show loading notification
+    showNotification('loading', 'Submitting Signal', 'Please wait while we process your trading signal...');
+    
     try {
       const response = await fetch('/api/trading-signals', {
         method: 'POST',
@@ -82,9 +110,14 @@ export default function Home() {
       });
 
       if (response.ok) {
-        alert('Trading signal submitted for approval!');
+        showNotification(
+          'success', 
+          'Signal Submitted Successfully!', 
+          'Your trading signal has been submitted for admin review. You will be notified once it\'s approved and published.'
+        );
         setShowTradingSignalForm(false);
         setTradingSignalForm({
+          author: '',
           asset: '',
           direction: 'LONG',
           tradingStyle: 'swing-trade',
@@ -99,18 +132,30 @@ export default function Home() {
         });
       } else {
         const errorData = await response.json();
-        alert(`Error: ${errorData.error}`);
+        showNotification(
+          'error', 
+          'Submission Failed', 
+          errorData.error || 'Failed to submit trading signal. Please check your input and try again.'
+        );
       }
     } catch (error) {
-      alert('Failed to submit trading signal');
+      showNotification(
+        'error', 
+        'Network Error', 
+        'Failed to submit trading signal. Please check your internet connection and try again.'
+      );
     }
   };
 
   // Handle market update form submission
   const handleMarketUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Show loading notification
+    showNotification('loading', 'Submitting Update', 'Please wait while we process your market update...');
+    
     try {
-      const response = await fetch('/api/market-updates', {
+      const response = await fetch('/api/market-update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -119,7 +164,11 @@ export default function Home() {
       });
 
       if (response.ok) {
-        alert('Market update submitted for approval!');
+        showNotification(
+          'success', 
+          'Update Submitted Successfully!', 
+          'Your market update has been submitted for admin review. You will be notified once it\'s approved and published.'
+        );
         setShowMarketUpdateForm(false);
         setMarketUpdateForm({
           title: '',
@@ -129,10 +178,18 @@ export default function Home() {
         mutateMarketUpdates();
       } else {
         const errorData = await response.json();
-        alert(`Error: ${errorData.error}`);
+        showNotification(
+          'error', 
+          'Submission Failed', 
+          errorData.error || 'Failed to submit market update. Please check your input and try again.'
+        );
       }
     } catch (error) {
-      alert('Failed to submit market update');
+      showNotification(
+        'error', 
+        'Network Error', 
+        'Failed to submit market update. Please check your internet connection and try again.'
+      );
     }
   };
 
@@ -587,6 +644,19 @@ export default function Home() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-terminal-accent mb-2">
+                      Author / Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={tradingSignalForm.author}
+                      onChange={(e) => setTradingSignalForm({ ...tradingSignalForm, author: e.target.value })}
+                      className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent placeholder-gray-400"
+                      placeholder="Your name or handle"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-terminal-accent mb-2">
                       Asset Symbol *
                     </label>
                     <input
@@ -854,6 +924,15 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Notification Modal */}
+      <NotificationModal
+        isOpen={notification.isOpen}
+        onClose={closeNotification}
+        type={notification.type}
+        title={notification.title}
+        message={notification.message}
+      />
     </div>
   );
 }

@@ -69,6 +69,7 @@ export default function AdminDashboard() {
   const [showApproveModal, setShowApproveModal] = useState<string | null>(null);
   const [approvalReason, setApprovalReason] = useState('');
   const [deleteReason, setDeleteReason] = useState('');
+  const [signalStatus, setSignalStatus] = useState('active'); // For trading signals
   const router = useRouter();
 
   useEffect(() => {
@@ -137,20 +138,30 @@ export default function AdminDashboard() {
 
     try {
       setActionLoading(id);
+      
+      // Prepare request body
+      const requestBody: any = { 
+        id, 
+        type, 
+        action: 'approve',
+        reason: approvalReason 
+      };
+
+      // Add signalStatus for trading signals
+      if (type === 'trading-signal') {
+        requestBody.signalStatus = signalStatus;
+      }
+
       const response = await fetch('/api/admin/dashboard', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          id, 
-          type, 
-          action: 'approve',
-          reason: approvalReason 
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (response.ok) {
         setShowApproveModal(null);
         setApprovalReason('');
+        setSignalStatus('active'); // Reset to default
         loadDashboard();
       }
     } catch (error) {
@@ -424,7 +435,7 @@ export default function AdminDashboard() {
                         {item.status === 'pending' && (
                           <>
                             <button
-                              onClick={() => handleApprove(item._id, item.type)}
+                              onClick={() => setShowApproveModal(item._id)}
                               disabled={actionLoading === item._id}
                               className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50"
                               title="Approve"
@@ -506,6 +517,75 @@ export default function AdminDashboard() {
                 onClick={() => {
                   setShowRejectModal(null);
                   setRejectionReason('');
+                }}
+                className="px-4 py-2 bg-terminal-panel border border-terminal-border text-terminal-accent rounded hover:bg-terminal-border transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approve Modal */}
+      {showApproveModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-terminal-bg rounded-lg border border-terminal-border p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-green-400 mb-4">Approve Submission</h3>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-terminal-accent mb-2">
+                Approval Reason *
+              </label>
+              <textarea
+                value={approvalReason}
+                onChange={(e) => setApprovalReason(e.target.value)}
+                className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent placeholder-gray-500 focus:outline-none focus:border-terminal-accent h-20 resize-none"
+                placeholder="Please provide a reason for approval..."
+                required
+              />
+            </div>
+
+            {/* Signal Status for Trading Signals */}
+            {(() => {
+              const item = items.find(i => i._id === showApproveModal);
+              return item?.type === 'trading-signal' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-terminal-accent mb-2">
+                    Signal Status
+                  </label>
+                  <select
+                    value={signalStatus}
+                    onChange={(e) => setSignalStatus(e.target.value)}
+                    className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent focus:outline-none focus:border-terminal-accent"
+                  >
+                    <option value="active">Active</option>
+                    <option value="sl">Stop Loss Hit</option>
+                    <option value="tp1">Take Profit 1 Hit</option>
+                    <option value="tp2">Take Profit 2 Hit</option>
+                    <option value="tp3">Take Profit 3 Hit</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </div>
+              );
+            })()}
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  const item = items.find(i => i._id === showApproveModal);
+                  if (item) handleApprove(item._id, item.type);
+                }}
+                disabled={!approvalReason.trim() || actionLoading === showApproveModal}
+                className="flex-1 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50"
+              >
+                Approve
+              </button>
+              <button
+                onClick={() => {
+                  setShowApproveModal(null);
+                  setApprovalReason('');
+                  setSignalStatus('active');
                 }}
                 className="px-4 py-2 bg-terminal-panel border border-terminal-border text-terminal-accent rounded hover:bg-terminal-border transition-colors"
               >

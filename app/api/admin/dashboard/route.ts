@@ -196,7 +196,7 @@ export const PATCH = withAuth(async (request: NextRequest, user) => {
     await connectDB();
 
     const body = await request.json();
-    const { id, type, action, reason } = body;
+    const { id, type, action, reason, signalStatus } = body;
 
     if (!id || !type || !action) {
       return NextResponse.json(
@@ -258,6 +258,11 @@ export const PATCH = withAuth(async (request: NextRequest, user) => {
       updateData.publishDate = new Date();
     }
 
+    // For trading signals, set signalStatus when approved
+    if (type === 'trading-signal' && action === 'approve' && signalStatus) {
+      updateData.signalStatus = signalStatus;
+    }
+
     const item = await Model.findByIdAndUpdate(
       id,
       updateData,
@@ -276,7 +281,7 @@ export const PATCH = withAuth(async (request: NextRequest, user) => {
       user.id,
       user.email,
       action as 'approve' | 'reject',
-      type,
+      type === 'trading-signal' ? 'trading-signals' : type, // Map trading-signal to trading-signals
       id,
       item.title || item.headline || 'Untitled',
       reason,
@@ -359,7 +364,7 @@ export const DELETE = withAuth(async (request: NextRequest, user) => {
       user.id,
       user.email,
       'delete',
-      type,
+      type === 'trading-signal' ? 'trading-signals' : type, // Map trading-signal to trading-signals
       id,
       itemToDelete.title || itemToDelete.headline || 'Untitled',
       reason,
