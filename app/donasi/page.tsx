@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import WalletBalanceCard from '@/components/WalletBalanceCard';
 
 const DONATION_WALLET = '0xD4233500BAE4973782c5eaA427A667ABd6FE9e5f';
 const EXPLORER_URL = `https://bscscan.com/address/${DONATION_WALLET}`;
@@ -29,30 +30,8 @@ async function getLatestLog() {
   }
 }
 
-async function getWalletBalance() {
-  try {
-    const json = (await fetchJsonWithTimeout(
-  `/api/wallet-balance`,
-      5000
-    )) as {
-      success: boolean;
-      data?: { balance?: string; symbol?: string };
-      error?: string;
-  hint?: string;
-    };
-    return json;
-  } catch {
-    return {
-      success: false,
-      error: 'Failed to load wallet balance.',
-      hint: 'Set BSC_RPC_URL di env.',
-    } as const;
-  }
-}
-
 export default async function DonationPage() {
   const latest = await getLatestLog();
-  const balanceRes = await getWalletBalance();
 
   return (
     <main className="min-h-screen bg-terminal-bg text-terminal-text">
@@ -81,26 +60,7 @@ export default async function DonationPage() {
               {DONATION_WALLET}
             </div>
 
-            <div className="mt-3 rounded-md border border-terminal-border bg-terminal-bg p-3 text-sm">
-              <div className="text-xs text-gray-400">Saldo saat ini (BNB)</div>
-              {balanceRes.success ? (
-                <div className="mt-1 font-mono text-gray-200">
-                  {balanceRes.data?.balance ?? '-'} {balanceRes.data?.symbol ?? 'BNB'}
-                </div>
-              ) : (
-                <div className="mt-1 text-xs text-gray-400">
-                  Tidak bisa ambil saldo otomatis.
-                  <div className="mt-1">
-                    <span className="text-gray-500">Error:</span>{' '}
-                    <span className="break-words font-mono">{balanceRes.error ?? '-'}</span>
-                  </div>
-                  <div className="mt-1">
-                    <span className="text-gray-500">Hint:</span>{' '}
-                    <span className="break-words">{balanceRes.hint ?? 'Set BSC_RPC_URL di env.'}</span>
-                  </div>
-                </div>
-              )}
-            </div>
+            <WalletBalanceCard />
 
             <div className="mt-3 flex flex-wrap gap-2">
               <a
