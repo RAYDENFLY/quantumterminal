@@ -12,10 +12,12 @@ import {
   faSignal,
   faBars,
   faTimes,
-  faList
+  faList,
+  faCodeBranch
 } from '@fortawesome/free-solid-svg-icons';
 import useSWR from 'swr';
 import packageJson from '../package.json';
+import ChangelogModal from './ChangelogModal';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -24,13 +26,9 @@ interface TopBarProps {
   setActiveModule: (module: string) => void;
 }
 
-interface TopBarProps {
-  activeModule: string;
-  setActiveModule: (module: string) => void;
-}
-
 export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isChangelogOpen, setIsChangelogOpen] = useState(false);
 
   // Fetch real news data
   const { data: newsData } = useSWR('/api/news', fetcher, { refreshInterval: 300000 }); // 5 minutes
@@ -82,6 +80,14 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
 
           {/* Mobile Menu Button & Alerts */}
           <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setIsChangelogOpen(true)}
+              className="hidden md:inline-flex items-center space-x-2 p-2 rounded-md text-gray-400 hover:text-terminal-accent transition-colors"
+              title="Changelog"
+            >
+              <FontAwesomeIcon icon={faCodeBranch} className="w-5 h-5" />
+            </button>
+
             <button className="p-2 rounded-md text-gray-400 hover:text-terminal-accent transition-colors relative hidden md:block">
               <FontAwesomeIcon icon={faBell} className="w-5 h-5" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-terminal-danger rounded-full"></span>
@@ -121,6 +127,16 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
               ))}
             </nav>
             <div className="mt-4 pt-4 border-t border-terminal-border">
+              <button
+                onClick={() => {
+                  setIsChangelogOpen(true);
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full p-3 rounded-md text-gray-400 hover:text-terminal-accent transition-colors flex items-center space-x-3"
+              >
+                <FontAwesomeIcon icon={faCodeBranch} className="w-4 h-4" />
+                <span>Changelog</span>
+              </button>
               <button className="w-full p-3 rounded-md text-gray-400 hover:text-terminal-accent transition-colors flex items-center space-x-3">
                 <FontAwesomeIcon icon={faBell} className="w-4 h-4" />
                 <span>Notifications</span>
@@ -130,6 +146,8 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
           </div>
         )}
       </div>
+
+      <ChangelogModal open={isChangelogOpen} onClose={() => setIsChangelogOpen(false)} />
 
       {/* Breaking News Ticker */}
       <div className="bg-terminal-bg border-t border-terminal-border px-4 py-2 overflow-hidden">

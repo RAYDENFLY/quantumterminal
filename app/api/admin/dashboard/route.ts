@@ -308,9 +308,11 @@ export const DELETE = withAuth(async (request: NextRequest, user) => {
   try {
     await connectDB();
 
-    const { id, type, reason } = await request.json();
+  const { id, type, reason } = await request.json();
+  // Backward-compat: some UI parts still send `trading-signal`
+  const normalizedType = type === 'trading-signal' ? 'trading-signals' : type;
 
-    if (!id || !type) {
+  if (!id || !normalizedType) {
       return NextResponse.json(
         { success: false, error: 'ID and type are required' },
         { status: 400 }
@@ -333,10 +335,10 @@ export const DELETE = withAuth(async (request: NextRequest, user) => {
       'trading-signals': TradingSignal
     };
 
-    const Model = modelMap[type];
+  const Model = modelMap[normalizedType];
     if (!Model) {
       return NextResponse.json(
-        { success: false, error: 'Invalid type' },
+    { success: false, error: `Invalid type: ${normalizedType}` },
         { status: 400 }
       );
     }
@@ -364,7 +366,7 @@ export const DELETE = withAuth(async (request: NextRequest, user) => {
       user.id,
       user.email,
       'delete',
-      type === 'trading-signal' ? 'trading-signals' : type, // Map trading-signal to trading-signals
+  normalizedType,
       id,
       itemToDelete.title || itemToDelete.headline || 'Untitled',
       reason,
@@ -373,7 +375,7 @@ export const DELETE = withAuth(async (request: NextRequest, user) => {
 
     return NextResponse.json({
       success: true,
-      message: `${type} deleted successfully`
+  message: `${normalizedType} deleted successfully`
     });
 
   } catch (error) {
@@ -390,9 +392,10 @@ export const PUT = withAuth(async (request: NextRequest) => {
   try {
     await connectDB();
 
-    const { id, type, title, description, content, author } = await request.json();
+  const { id, type, title, description, content, author } = await request.json();
+  const normalizedType = type === 'trading-signal' ? 'trading-signals' : type;
 
-    if (!id || !type) {
+  if (!id || !normalizedType) {
       return NextResponse.json(
         { success: false, error: 'ID and type are required' },
         { status: 400 }
@@ -408,10 +411,10 @@ export const PUT = withAuth(async (request: NextRequest) => {
       'trading-signals': TradingSignal
     };
 
-    const Model = modelMap[type];
+  const Model = modelMap[normalizedType];
     if (!Model) {
       return NextResponse.json(
-        { success: false, error: 'Invalid type' },
+    { success: false, error: `Invalid type: ${normalizedType}` },
         { status: 400 }
       );
     }
@@ -421,7 +424,7 @@ export const PUT = withAuth(async (request: NextRequest) => {
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) {
       // Handle different description field names
-      if (type === 'learning') {
+  if (normalizedType === 'learning') {
         updateData.deskripsi = description;
       } else {
         updateData.description = description;
@@ -446,7 +449,7 @@ export const PUT = withAuth(async (request: NextRequest) => {
     return NextResponse.json({
       success: true,
       data: updatedItem,
-      message: `${type} updated successfully`
+  message: `${normalizedType} updated successfully`
     });
 
   } catch (error) {
