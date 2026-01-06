@@ -37,5 +37,10 @@
     "recharts": "^3.5.1",
     "swr": "^2.3.7",
     "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17"
   }
 }

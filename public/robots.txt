@@ -1,0 +1,15 @@
+# Robots.txt for Quantum Terminal
+# https://quantumterminal.vercel.app
+
+User-agent: *
+Allow: /
+
+# Disallow admin and API routes
+Disallow: /admin/
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://quantumterminal.vercel.app/sitemap.xml
+
+# Crawl delay for responsible crawling
+Crawl-delay: 1
