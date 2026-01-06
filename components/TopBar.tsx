@@ -11,9 +11,11 @@ import {
   faBell,
   faSignal,
   faBars,
-  faTimes
+  faTimes,
+  faList
 } from '@fortawesome/free-solid-svg-icons';
 import useSWR from 'swr';
+import packageJson from '../package.json';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -42,6 +44,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
     { id: 'onchain', label: 'On-Chain', icon: faCubes, hotkey: 'ALT+3' },
     { id: 'research', label: 'Research', icon: faBook, hotkey: 'ALT+4' },
     { id: 'learning', label: 'Learning', icon: faGraduationCap, hotkey: 'ALT+5' },
+    { id: 'submissions', label: 'Submissions', icon: faList, hotkey: 'ALT+6' },
   ];
 
   return (
@@ -54,7 +57,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
               <span className="text-terminal-accent glow-accent">QUANTUM</span>
               <span className="text-terminal-text ml-1">TERMINAL</span>
             </div>
-            <div className="text-xs text-gray-500 mt-1 hidden sm:block">v1.0.0</div>
+            <div className="text-xs text-gray-500 mt-1 hidden sm:block">v{packageJson.version}</div>
           </div>
 
           {/* Desktop Navigation */}

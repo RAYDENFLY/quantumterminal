@@ -138,7 +138,7 @@ async function getCovalentTransactions(address: string, limit = 10) {
     const COVALENT_API_KEY = process.env.COVALENT_API_KEY;
 
     if (!COVALENT_API_KEY) {
-      console.warn('COVALENT_API_KEY not configured');
+      // Silently return empty array if API key not configured
       return [];
     }
 

@@ -57,38 +57,38 @@ export default function MarketOverview() {
   const isPositive = marketData.market_cap_change_percentage_24h_usd >= 0;
 
   return (
-    <div className="terminal-panel">
-      <h2 className="terminal-header">📊 Global Market Overview</h2>
+    <div className="terminal-panel py-6">
+      <h2 className="terminal-header mb-6">📊 Global Market Overview</h2>
       
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
         {/* Total Market Cap */}
-        <div>
-          <div className="text-xs text-gray-500 mb-1">Total Market Cap</div>
+        <div className="py-3">
+          <div className="text-xs text-gray-500 mb-2">Total Market Cap</div>
           <div className="text-lg lg:text-2xl font-bold text-terminal-accent">
             {formatNumber(marketData.total_market_cap.usd)}
           </div>
-          <div className={`text-sm flex items-center space-x-1 mt-1 ${isPositive ? 'price-up' : 'price-down'}`}>
+          <div className={`text-sm flex items-center space-x-1 mt-2 ${isPositive ? 'price-up' : 'price-down'}`}>
             <FontAwesomeIcon icon={isPositive ? faArrowUp : faArrowDown} className="w-3 h-3" />
             <span>{Math.abs(marketData.market_cap_change_percentage_24h_usd).toFixed(2)}%</span>
           </div>
         </div>
 
         {/* 24h Volume */}
-        <div>
-          <div className="text-xs text-gray-500 mb-1">24h Volume</div>
+        <div className="py-3">
+          <div className="text-xs text-gray-500 mb-2">24h Volume</div>
           <div className="text-lg lg:text-2xl font-bold">
             {formatNumber(marketData.total_volume.usd)}
           </div>
-          <div className="text-sm text-gray-500 mt-1">Trading Activity</div>
+          <div className="text-sm text-gray-500 mt-2">Trading Activity</div>
         </div>
 
         {/* BTC Dominance */}
-        <div>
-          <div className="text-xs text-gray-500 mb-1">BTC Dominance</div>
+        <div className="py-3">
+          <div className="text-xs text-gray-500 mb-2">BTC Dominance</div>
           <div className="text-lg lg:text-2xl font-bold text-orange-400">
             {marketData.market_cap_percentage.btc.toFixed(2)}%
           </div>
-          <div className="w-full bg-terminal-bg rounded-full h-2 mt-2">
+          <div className="w-full bg-terminal-bg rounded-full h-2 mt-3">
             <div 
               className="bg-orange-400 h-2 rounded-full transition-all duration-500"
               style={{ width: `${marketData.market_cap_percentage.btc}%` }}
@@ -97,12 +97,12 @@ export default function MarketOverview() {
         </div>
 
         {/* ETH Dominance */}
-        <div>
-          <div className="text-xs text-gray-500 mb-1">ETH Dominance</div>
+        <div className="py-3">
+          <div className="text-xs text-gray-500 mb-2">ETH Dominance</div>
           <div className="text-lg lg:text-2xl font-bold text-blue-400">
             {marketData.market_cap_percentage.eth.toFixed(2)}%
           </div>
-          <div className="w-full bg-terminal-bg rounded-full h-2 mt-2">
+          <div className="w-full bg-terminal-bg rounded-full h-2 mt-3">
             <div 
               className="bg-blue-400 h-2 rounded-full transition-all duration-500"
               style={{ width: `${marketData.market_cap_percentage.eth}%` }}
@@ -111,12 +111,12 @@ export default function MarketOverview() {
         </div>
 
         {/* Total Coin Inflow */}
-        <div>
-          <div className="text-xs text-gray-500 mb-1">Exchange Inflow</div>
+        <div className="py-3">
+          <div className="text-xs text-gray-500 mb-2">Exchange Inflow</div>
           <div className="text-lg lg:text-2xl font-bold text-green-400">
             {inflowData ? formatNumber(inflowData.totalInflow || 0) : 'Loading...'}
           </div>
-          <div className="text-sm text-gray-500 mt-1">24h Total</div>
+          <div className="text-sm text-gray-500 mt-2">24h Total</div>
         </div>
       </div>
     </div>

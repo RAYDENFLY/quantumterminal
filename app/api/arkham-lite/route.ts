@@ -21,11 +21,14 @@ export async function GET(request: NextRequest) {
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ address })
+            body: JSON.stringify({ address }),
+            // Add timeout of 5 seconds
+            signal: AbortSignal.timeout(5000)
           }
         );
 
         if (!walletResponse.ok) {
+          console.warn(`Wallet tracking API returned ${walletResponse.status}`);
           return NextResponse.json({ error: 'Failed to fetch wallet data' }, { status: 500 });
         }
 
@@ -54,12 +57,17 @@ export async function GET(request: NextRequest) {
         });
 
       case 'whale-transfers':
-        // Get whale transfers from whale-alerts API
+        // Get whale transfers from whale-alerts API with timeout
         const whaleResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/whale-alerts`
+          `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/whale-alerts`,
+          {
+            // Add timeout of 5 seconds
+            signal: AbortSignal.timeout(5000)
+          }
         );
 
         if (!whaleResponse.ok) {
+          console.warn(`Whale alerts API returned ${whaleResponse.status}`);
           return NextResponse.json({ error: 'Failed to fetch whale alerts' }, { status: 500 });
         }
 
@@ -94,8 +102,17 @@ export async function GET(request: NextRequest) {
         }, { status: 400 });
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Arkham Lite API error:', error);
+    
+    // Handle timeout errors specifically
+    if (error.name === 'TimeoutError' || error.code === 'UND_ERR_HEADERS_TIMEOUT') {
+      return NextResponse.json({
+        success: false,
+        error: 'Request timeout - external API took too long to respond'
+      }, { status: 504 });
+    }
+    
     return NextResponse.json({
       success: false,
       error: 'Internal server error'

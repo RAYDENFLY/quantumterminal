@@ -10,144 +10,131 @@ import OnChainAnalytics from '@/components/OnChainAnalytics';
 import OnChainTransactions from '@/components/OnChainTransactions';
 import ResearchPage from '@/components/ResearchPage';
 import LearningPage from '@/components/LearningPage';
+import SubmissionsPage from '@/app/submissions/page';
 import { useHotkeys } from '@/hooks/useHotkeys';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUp, faArrowDown, faMinus, faSignal, faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUp, faArrowDown, faMinus, faSignal, faExternalLinkAlt, faPlus } from '@fortawesome/free-solid-svg-icons';
 import useSWR from 'swr';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function Home() {
   const [activeModule, setActiveModule] = useState<string>('market');
+  const [showTradingSignalForm, setShowTradingSignalForm] = useState(false);
+  const [showMarketUpdateForm, setShowMarketUpdateForm] = useState(false);
+  const [tradingSignalForm, setTradingSignalForm] = useState({
+    asset: '',
+    direction: 'LONG',
+    tradingStyle: 'swing-trade',
+    conviction: 5,
+    entryPrice: '',
+    stopLoss: '',
+    takeProfit1: '',
+    takeProfit2: '',
+    takeProfit3: '',
+    reasoning: '',
+    image: ''
+  });
+  const [marketUpdateForm, setMarketUpdateForm] = useState({
+    title: '',
+    content: '',
+    imageUrl: ''
+  });
 
   // Fetch market data for trading signals
   const { data: marketData } = useSWR('/api/global-market', fetcher, { refreshInterval: 60000 });
 
-  // Generate trading signals based on market conditions
-  const getTradingSignals = () => {
-    if (!marketData?.data) return [];
+  // Fetch trading signals from database
+  const { data: tradingSignalsData, mutate: mutateTradingSignals } = useSWR('/api/trading-signals', fetcher, { refreshInterval: 60000 });
 
-    const signals: Array<any> = [];
-    const marketChange = marketData.data.market_cap_change_percentage_24h_usd;
-    const btcDom = marketData.data.market_cap_percentage.btc;
+  // Fetch market updates from database
+  const { data: marketUpdatesData, mutate: mutateMarketUpdates } = useSWR('/api/market-updates', fetcher, { refreshInterval: 60000 });
 
-    // BTC Signal
-    if (marketChange > 5) {
-      signals.push({
-        asset: 'BTC',
-        signal: 'LONG',
-        strength: 'Author: Azis Maulana',
-        reason: 'Conviction: 8/10',
-        status: 'Running',
-        icon: faArrowUp,
-        color: 'text-terminal-success',
-        entry: '$95,000 - $98,000',
-        sl: '$92,000',
-        tp1: '$110,000',
-        tp2: '$125,000',
-        tp3: '$140,000'
+  // Fetch research papers from database
+  const { data: researchData } = useSWR('/api/research', fetcher, { refreshInterval: 300000 });
+
+  // Transform trading signals data for UI
+  const tradingSignals = (tradingSignalsData?.signals || []).map((signal: any) => ({
+    ...signal,
+    icon: signal.direction === 'LONG' ? faArrowUp : faArrowDown,
+    color: signal.direction === 'LONG' ? 'text-terminal-success' : 'text-terminal-danger',
+    signal: signal.direction,
+    strength: `Author: ${signal.author}`,
+    reason: `Conviction: ${signal.conviction}/10`,
+    status: signal.signalStatus || 'Running',
+    entry: signal.entryPrice,
+    sl: signal.stopLoss,
+    tp1: signal.takeProfit1,
+    tp2: signal.takeProfit2,
+    tp3: signal.takeProfit3
+  }));
+
+  // Handle trading signal form submission
+  const handleTradingSignalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('/api/trading-signals', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(tradingSignalForm),
       });
-    } else if (marketChange < -5) {
-      signals.push({
-        asset: 'BTC',
-        signal: 'SHORT',
-        strength: 'Author: Azis Maulana',
-        reason: 'Conviction: 7/10',
-        status: 'SL',
-        icon: faArrowDown,
-        color: 'text-terminal-danger',
-        entry: '$85,000 - $87,000',
-        sl: '$89,000',
-        tp1: '$75,000',
-        tp2: '$70,000',
-        tp3: '$65,000'
-      });
+
+      if (response.ok) {
+        alert('Trading signal submitted for approval!');
+        setShowTradingSignalForm(false);
+        setTradingSignalForm({
+          asset: '',
+          direction: 'LONG',
+          tradingStyle: 'swing-trade',
+          conviction: 5,
+          entryPrice: '',
+          stopLoss: '',
+          takeProfit1: '',
+          takeProfit2: '',
+          takeProfit3: '',
+          reasoning: '',
+          image: ''
+        });
+      } else {
+        const errorData = await response.json();
+        alert(`Error: ${errorData.error}`);
+      }
+    } catch (error) {
+      alert('Failed to submit trading signal');
     }
-
-    // ETH Signal
-    signals.push({
-      asset: 'ETH',
-      signal: 'LONG',
-      strength: 'Author: Azis Maulana',
-      reason: 'Conviction: 9/10',
-      status: 'Running',
-      icon: faArrowUp,
-      color: 'text-terminal-success',
-      entry: '$3,800 - $3,900',
-      sl: '$3,600',
-      tp1: '$4,200',
-      tp2: '$4,500',
-      tp3: '$4,800'
-    });
-
-    // BNB Signal
-    signals.push({
-      asset: 'BNB',
-      signal: 'LONG',
-      strength: 'Author: Azis Maulana',
-      reason: 'Conviction: 7/10',
-      status: 'TP 1',
-      icon: faArrowUp,
-      color: 'text-terminal-success',
-      entry: '$580 - $600',
-      sl: '$550',
-      tp1: '$650',
-      tp2: '$720',
-      tp3: '$800'
-    });
-
-    // SOL Signal
-    signals.push({
-      asset: 'SOL',
-      signal: 'SHORT',
-      strength: 'Author: Azis Maulana',
-      reason: 'Conviction: 6/10',
-      status: 'Wait / In Limit Order',
-      icon: faArrowDown,
-      color: 'text-terminal-danger',
-      entry: '$180 - $185',
-      sl: '$195',
-      tp1: '$150',
-      tp2: '$130',
-      tp3: '$110'
-    });
-
-    // DOT Signal
-    signals.push({
-      asset: 'DOT',
-      signal: 'LONG',
-      strength: 'Author: Azis Maulana',
-      reason: 'Conviction: 8/10',
-      status: 'Running',
-      icon: faArrowUp,
-      color: 'text-terminal-success',
-      entry: '$28 - $30',
-      sl: '$26',
-      tp1: '$35',
-      tp2: '$42',
-      tp3: '$50'
-    });
-
-    // LINK Signal
-    signals.push({
-      asset: 'LINK',
-      signal: 'LONG',
-      strength: 'Author: Azis Maulana',
-      reason: 'Conviction: 7/10',
-      status: 'TP 2',
-      icon: faArrowUp,
-      color: 'text-terminal-success',
-      entry: '$18 - $19',
-      sl: '$17',
-      tp1: '$22',
-      tp2: '$25',
-      tp3: '$28'
-    });
-
-    return signals;
   };
 
-  const tradingSignals = getTradingSignals();
+  // Handle market update form submission
+  const handleMarketUpdateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('/api/market-updates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(marketUpdateForm),
+      });
+
+      if (response.ok) {
+        alert('Market update submitted for approval!');
+        setShowMarketUpdateForm(false);
+        setMarketUpdateForm({
+          title: '',
+          content: '',
+          imageUrl: ''
+        });
+        mutateMarketUpdates();
+      } else {
+        const errorData = await response.json();
+        alert(`Error: ${errorData.error}`);
+      }
+    } catch (error) {
+      alert('Failed to submit market update');
+    }
+  };
 
   // Hotkeys navigation
   useHotkeys([
@@ -156,6 +143,7 @@ export default function Home() {
     { key: 'Alt+3', action: () => setActiveModule('onchain') },
     { key: 'Alt+4', action: () => setActiveModule('research') },
     { key: 'Alt+5', action: () => setActiveModule('learning') },
+    { key: 'Alt+6', action: () => setActiveModule('submissions') },
   ]);
 
   const renderActiveModule = () => {
@@ -169,19 +157,28 @@ export default function Home() {
               <TopGainersLosers />
               
               {/* Trading Signals */}
-              {tradingSignals.length > 0 && (
-                <div className="bg-terminal-bg rounded-lg p-4 border border-terminal-border">
-                  <h3 className="text-sm font-semibold text-terminal-accent mb-4 flex items-center">
+              <div className="bg-terminal-bg rounded-lg p-4 border border-terminal-border">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-terminal-accent flex items-center">
                     <FontAwesomeIcon icon={faSignal} className="w-4 h-4 mr-2" />
                     Trading Signals
                   </h3>
-                  <p className="text-xs text-gray-400 mb-4 leading-relaxed">
-                    Selalu ingat bahwa trading futures memiliki risiko yang sangat tinggi. Seluruh chart, analisis, atau pandangan yang saya bagikan bukan merupakan ajakan atau saran investasi. Semua hanyalah hasil dari analisis pribadi yang bisa saja salah.<br/><br/>
-                    Profit maupun kerugian menjadi tanggung jawab masing-masing trader.<br/>
-                    Pastikan selalu menggunakan Risk Management yang baik dan tidak pernah menggunakan dana yang kamu tidak siap kehilangannya.
-                  </p>
+                  <button
+                    onClick={() => setShowTradingSignalForm(true)}
+                    className="flex items-center space-x-1 text-xs bg-terminal-accent text-black px-2 py-1 rounded hover:bg-terminal-accent/80 transition-colors"
+                  >
+                    <FontAwesomeIcon icon={faPlus} className="w-3 h-3" />
+                    <span>Add Signal</span>
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mb-4 leading-relaxed">
+                  Selalu ingat bahwa trading futures memiliki risiko yang sangat tinggi. Seluruh chart, analisis, atau pandangan yang saya bagikan bukan merupakan ajakan atau saran investasi. Semua hanyalah hasil dari analisis pribadi yang bisa saja salah.<br/><br/>
+                  Profit maupun kerugian menjadi tanggung jawab masing-masing trader.<br/>
+                  Pastikan selalu menggunakan Risk Management yang baik dan tidak pernah menggunakan dana yang kamu tidak siap kehilangannya.
+                </p>
+                {tradingSignals.length > 0 ? (
                   <div className="flex gap-4 overflow-x-auto pb-2">
-                    {tradingSignals.map((signal, index) => (
+                    {tradingSignals.map((signal: any, index: number) => (
                       <div key={index} className="bg-terminal-panel rounded-lg p-3 border border-terminal-border flex-shrink-0 w-64">
                         <div className="text-sm font-medium text-terminal-accent mb-1">{signal.asset}</div>
                         <div className="flex items-center justify-between mb-2">
@@ -198,8 +195,23 @@ export default function Home() {
                             {signal.status}
                           </div>
                         </div>
-                        <div className="text-xs text-gray-400 mb-1">{signal.strength} Signal</div>
+                        <div className="text-xs text-gray-400 mb-1">{signal.strength}</div>
                         <div className="text-xs text-gray-500 mb-3">{signal.reason}</div>
+                        
+                        {/* Analysis Image */}
+                        {signal.imageUrl && (
+                          <div className="mb-3">
+                            <img 
+                              src={signal.imageUrl} 
+                              alt="Signal Analysis"
+                              className="w-full h-24 object-cover rounded border border-terminal-border"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
                         
                         {/* Trading Details */}
                         <div className="border-t border-terminal-border pt-2 space-y-1">
@@ -227,183 +239,198 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="text-center text-gray-400 text-sm py-8">
+                    No trading signals available. Be the first to add one!
+                  </div>
+                )}
+              </div>
               
               {/* Market Update */}
               <div className="bg-terminal-bg rounded-lg p-4 border border-terminal-border">
-                <h3 className="text-sm font-semibold text-terminal-accent mb-4 flex items-center">
-                  <FontAwesomeIcon icon={faSignal} className="w-4 h-4 mr-2" />
-                  Market Update
-                </h3>
-                <div className="flex gap-4 overflow-x-auto pb-2">
-                  {/* Post 1 */}
-                  <div className="bg-terminal-panel rounded-lg border border-terminal-border flex-shrink-0 w-80 overflow-hidden">
-                    {/* Header */}
-                    <div className="p-3 border-b border-terminal-border">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-6 h-6 bg-terminal-accent rounded-full flex items-center justify-center">
-                          <span className="text-xs font-bold text-black">M</span>
-                        </div>
-                        <div>
-                          <div className="text-xs font-semibold text-terminal-accent">Mokizuki</div>
-                          <div className="text-xs text-gray-400">2h</div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Image Placeholder */}
-                    <div className="aspect-[16/9] bg-terminal-bg flex items-center justify-center">
-                      <div className="text-center">
-                        <FontAwesomeIcon icon={faSignal} className="w-8 h-8 text-terminal-accent mb-1" />
-                        <div className="text-xs text-gray-400">BTC/USD Chart</div>
-                      </div>
-                    </div>
-                    
-                    {/* Content */}
-                    <div className="p-3">
-                      <div className="space-y-2 mb-3">
-                        <div className="text-xs">
-                          <span className="font-semibold text-terminal-accent">🚀 Bullish Signals</span><br/>
-                          • BTC breaking above $95,000 resistance<br/>
-                          • ETH staking rewards at all-time high
-                        </div>
-                      </div>
-                      
-                      {/* Engagement */}
-                      <div className="flex items-center justify-between text-xs text-gray-400 border-t border-terminal-border pt-2">
-                        <div className="flex space-x-3">
-                          <span>1,234 likes</span>
-                          <span>89 comments</span>
-                        </div>
-                        <div className="text-xs text-gray-500">Dec 9</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Post 2 */}
-                  <div className="bg-terminal-panel rounded-lg border border-terminal-border flex-shrink-0 w-80 overflow-hidden">
-                    {/* Header */}
-                    <div className="p-3 border-b border-terminal-border">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-6 h-6 bg-terminal-accent rounded-full flex items-center justify-center">
-                          <span className="text-xs font-bold text-black">JT</span>
-                        </div>
-                        <div>
-                          <div className="text-xs font-semibold text-terminal-accent">Jurnal Trading</div>
-                          <div className="text-xs text-gray-400">4h</div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Image Placeholder */}
-                    <div className="aspect-[16/9] bg-terminal-bg flex items-center justify-center">
-                      <div className="text-center">
-                        <FontAwesomeIcon icon={faSignal} className="w-8 h-8 text-terminal-accent mb-1" />
-                        <div className="text-xs text-gray-400">ETH/USD Chart</div>
-                      </div>
-                    </div>
-                    
-                    {/* Content */}
-                    <div className="p-3">
-                      <div className="space-y-2 mb-3">
-                        <div className="text-xs">
-                          <span className="font-semibold text-terminal-accent">⚠️ Risk Factors</span><br/>
-                          • Regulatory uncertainty in major markets<br/>
-                          • Macroeconomic pressures increasing
-                        </div>
-                      </div>
-                      
-                      {/* Engagement */}
-                      <div className="flex items-center justify-between text-xs text-gray-400 border-t border-terminal-border pt-2">
-                        <div className="flex space-x-3">
-                          <span>856 likes</span>
-                          <span>67 comments</span>
-                        </div>
-                        <div className="text-xs text-gray-500">Dec 9</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Post 3 */}
-                  <div className="bg-terminal-panel rounded-lg border border-terminal-border flex-shrink-0 w-80 overflow-hidden">
-                    {/* Header */}
-                    <div className="p-3 border-b border-terminal-border">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-6 h-6 bg-terminal-accent rounded-full flex items-center justify-center">
-                          <span className="text-xs font-bold text-black">R</span>
-                        </div>
-                        <div>
-                          <div className="text-xs font-semibold text-terminal-accent">RAYDENFLY</div>
-                          <div className="text-xs text-gray-400">6h</div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Image Placeholder */}
-                    <div className="aspect-[16/9] bg-terminal-bg flex items-center justify-center">
-                      <div className="text-center">
-                        <FontAwesomeIcon icon={faSignal} className="w-8 h-8 text-terminal-accent mb-1" />
-                        <div className="text-xs text-gray-400">Market Overview</div>
-                      </div>
-                    </div>
-                    
-                    {/* Content */}
-                    <div className="p-3">
-                      <div className="space-y-2 mb-3">
-                        <div className="text-xs">
-                          <span className="font-semibold text-terminal-accent">📈 Key Levels</span><br/>
-                          • BTC Support: $92,000 | Resistance: $110,000<br/>
-                          • Market sentiment: Moderately Bullish
-                        </div>
-                      </div>
-                      
-                      {/* Engagement */}
-                      <div className="flex items-center justify-between text-xs text-gray-400 border-t border-terminal-border pt-2">
-                        <div className="flex space-x-3">
-                          <span>2,145 likes</span>
-                          <span>123 comments</span>
-                        </div>
-                        <div className="text-xs text-gray-500">Dec 9</div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-terminal-accent flex items-center">
+                    <FontAwesomeIcon icon={faSignal} className="w-4 h-4 mr-2" />
+                    Market Update
+                  </h3>
+                  <button
+                    onClick={() => setShowMarketUpdateForm(true)}
+                    className="flex items-center space-x-1 text-xs bg-terminal-accent text-black px-2 py-1 rounded hover:bg-terminal-accent/80 transition-colors"
+                  >
+                    <FontAwesomeIcon icon={faPlus} className="w-3 h-3" />
+                    <span>Add Update</span>
+                  </button>
                 </div>
+                
+                {marketUpdatesData?.updates?.length > 0 ? (
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {marketUpdatesData.updates.map((update: any, index: number) => (
+                      <div key={index} className="bg-terminal-panel rounded-lg border border-terminal-border flex-shrink-0 w-80 overflow-hidden">
+                        {/* Header */}
+                        <div className="p-3 border-b border-terminal-border">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-6 h-6 bg-terminal-accent rounded-full flex items-center justify-center">
+                              <span className="text-xs font-bold text-black">
+                                {update.author?.charAt(0)?.toUpperCase() || 'U'}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="text-xs font-semibold text-terminal-accent">
+                                {update.author || 'Anonymous'}
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                {new Date(update.createdAt).toLocaleDateString()}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Image */}
+                        {update.imageUrl ? (
+                          <div className="aspect-[16/9] bg-terminal-bg overflow-hidden">
+                            <img 
+                              src={update.imageUrl} 
+                              alt={update.title}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="aspect-[16/9] bg-terminal-bg flex items-center justify-center">
+                            <div className="text-center">
+                              <FontAwesomeIcon icon={faSignal} className="w-8 h-8 text-terminal-accent mb-1" />
+                              <div className="text-xs text-gray-400">Market Analysis</div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Content */}
+                        <div className="p-3">
+                          <div className="mb-3">
+                            <div className="text-sm font-semibold text-terminal-accent mb-2">
+                              {update.title}
+                            </div>
+                            <div className="text-xs text-gray-300 leading-relaxed">
+                              {update.content.length > 150 
+                                ? `${update.content.substring(0, 150)}...` 
+                                : update.content
+                              }
+                            </div>
+                          </div>
+                          
+                          {/* Engagement */}
+                          <div className="flex items-center justify-between text-xs text-gray-400 border-t border-terminal-border pt-2">
+                            <div className="flex space-x-3">
+                              <span>Market Update</span>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(update.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-400 text-sm py-8">
+                    No market updates available. Be the first to share market insights!
+                  </div>
+                )}
               </div>
               
               {/* Research Update */}
               <div className="bg-terminal-bg rounded-lg p-4 border border-terminal-border">
-                <h3 className="text-sm font-semibold text-terminal-accent mb-4 flex items-center">
-                  <FontAwesomeIcon icon={faSignal} className="w-4 h-4 mr-2" />
-                  Research Update
-                </h3>
-                <div className="space-y-3">
-                  <div className="bg-terminal-panel rounded-lg p-3 border border-terminal-border">
-                    <div className="text-sm font-medium text-terminal-accent mb-2">📊 Market Analysis</div>
-                    <div className="text-xs text-gray-400 mb-2">BTC Dominance stabilizing above 50%</div>
-                    <div className="text-xs text-gray-500">ETH network upgrades showing positive momentum</div>
-                  </div>
-                  
-                  <div className="bg-terminal-panel rounded-lg p-3 border border-terminal-border">
-                    <div className="text-sm font-medium text-terminal-accent mb-2">🔬 DeFi Research</div>
-                    <div className="text-xs text-gray-400 mb-2">TVL growth in Layer 2 solutions</div>
-                    <div className="text-xs text-gray-500">Yield farming strategies optimization</div>
-                  </div>
-                  
-                  <div className="bg-terminal-panel rounded-lg p-3 border border-terminal-border">
-                    <div className="text-sm font-medium text-terminal-accent mb-2">🌐 On-Chain Metrics</div>
-                    <div className="text-xs text-gray-400 mb-2">Whale accumulation patterns detected</div>
-                    <div className="text-xs text-gray-500">Exchange inflow/outflow analysis</div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-terminal-accent flex items-center">
+                    <FontAwesomeIcon icon={faSignal} className="w-4 h-4 mr-2" />
+                    Research Update
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs text-gray-500">
+                      {researchData ? `${researchData?.research?.length || 0} papers` : 'Loading...'}
+                    </div>
                   </div>
                 </div>
+                {!researchData ? (
+                  <div className="text-center text-gray-400 text-sm py-4">
+                    <div className="animate-pulse">Loading research papers...</div>
+                  </div>
+                ) : researchData?.research?.length > 0 ? (
+                  <div className="space-y-3">
+                    {researchData.research.slice(0, 3).map((research: any, index: number) => (
+                      <div key={research._id || index} className="bg-terminal-panel rounded-lg p-3 border border-terminal-border">
+                        <div className="text-sm font-medium text-terminal-accent mb-2">
+                          📊 {research.title}
+                        </div>
+                        <div className="text-xs text-gray-400 mb-2">
+                          By {research.author} • {new Date(research.createdAt).toLocaleDateString()}
+                        </div>
+                        <div className="text-xs text-gray-500 mb-2">
+                          {research.description 
+                            ? (research.description.length > 120 
+                                ? `${research.description.substring(0, 120)}...` 
+                                : research.description)
+                            : 'No description available'
+                          }
+                        </div>
+                        {research.tags && research.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {research.tags.slice(0, 2).map((tag: string, tagIndex: number) => (
+                              <span key={tagIndex} className="text-xs bg-terminal-accent/10 text-terminal-accent px-2 py-1 rounded">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-terminal-border">
+                          <div className="text-xs text-gray-400">
+                            Research Paper
+                          </div>
+                          <a 
+                            href={research.link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-xs text-terminal-accent hover:text-terminal-accent/80 transition-colors"
+                          >
+                            Read more →
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                    {researchData.research.length > 3 && (
+                      <div className="text-center pt-2">
+                        <a 
+                          href="#research"
+                          onClick={() => setActiveModule('research')}
+                          className="text-xs text-terminal-accent hover:text-terminal-accent/80 cursor-pointer"
+                        >
+                          View all {researchData.research.length} research papers →
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-400 text-sm py-8">
+                    <div className="mb-2">📚</div>
+                    <div className="font-medium mb-1">No research papers yet</div>
+                    <div className="text-xs">
+                      Be the first to submit research papers for the community!
+                    </div>
+                    <button
+                      onClick={() => setActiveModule('research')}
+                      className="mt-3 text-xs bg-terminal-accent/10 text-terminal-accent px-3 py-1 rounded hover:bg-terminal-accent/20 transition-colors"
+                    >
+                      Submit Research →
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Right Column - Indicators & Info */}
+            {/* Right Column - Fear & Greed Index and News */}
             <div className="space-y-4">
               <FearGreedIndex />
               
-              {/* Altcoin Season / Bitcoin Season Index */}
+              {/* Season Index */}
               <div className="terminal-panel">
                 <h2 className="terminal-header">🌊 Season Index</h2>
                 
@@ -470,29 +497,20 @@ export default function Home() {
 
       case 'news':
         return (
-          <div className="max-w-7xl mx-auto">
-            <div className="terminal-panel mb-6">
-              <h2 className="terminal-header text-2xl">📰 Latest Crypto News</h2>
-              <p className="text-gray-400 text-sm mt-2">Real-time news feed with sentiment analysis from top crypto sources</p>
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-3">
+              <NewsFeed />
             </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              {/* Main News Feed - Full Width */}
-              <div className="lg:col-span-3">
-                <NewsFeed />
-              </div>
-
-              {/* Sidebar */}
-              <div className="space-y-4">
-                <FearGreedIndex />
-              </div>
+            <div className="lg:col-span-2 space-y-4">
+              <FearGreedIndex />
+              <MarketOverview />
             </div>
           </div>
         );
 
       case 'onchain':
         return (
-          <div className="max-w-7xl mx-auto space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <OnChainAnalytics />
             <OnChainTransactions />
           </div>
@@ -504,16 +522,16 @@ export default function Home() {
       case 'learning':
         return <LearningPage />;
 
+      case 'submissions':
+        return <SubmissionsPage />;
+
       default:
         return (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Left Column - Market Overview */}
             <div className="lg:col-span-2 space-y-4">
               <MarketOverview />
               <TopGainersLosers />
             </div>
-
-            {/* Right Column - Indicators & Info */}
             <div className="space-y-4">
               <FearGreedIndex />
               <NewsFeed />
@@ -549,6 +567,293 @@ export default function Home() {
           <p className="font-bold text-terminal-accent">Quantum Terminal</p>
         </div>
       </footer>
+
+      {/* Trading Signal Form Modal */}
+      {showTradingSignalForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-terminal-bg border border-terminal-border rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-terminal-accent">Submit Trading Signal</h2>
+                <button
+                  onClick={() => setShowTradingSignalForm(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <FontAwesomeIcon icon={faMinus} className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleTradingSignalSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-terminal-accent mb-2">
+                      Asset Symbol *
+                    </label>
+                    <input
+                      type="text"
+                      value={tradingSignalForm.asset}
+                      onChange={(e) => setTradingSignalForm({ ...tradingSignalForm, asset: e.target.value.toUpperCase() })}
+                      className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent placeholder-gray-400"
+                      placeholder="BTC, ETH, SOL..."
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-terminal-accent mb-2">
+                      Direction *
+                    </label>
+                    <select
+                      value={tradingSignalForm.direction}
+                      onChange={(e) => setTradingSignalForm({ ...tradingSignalForm, direction: e.target.value })}
+                      className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent"
+                      required
+                    >
+                      <option value="LONG">LONG</option>
+                      <option value="SHORT">SHORT</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-terminal-accent mb-2">
+                      Trading Style *
+                    </label>
+                    <select
+                      value={tradingSignalForm.tradingStyle}
+                      onChange={(e) => setTradingSignalForm({ ...tradingSignalForm, tradingStyle: e.target.value })}
+                      className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent"
+                      required
+                    >
+                      <option value="swing-trade">Swing Trade</option>
+                      <option value="scalping">Scalping</option>
+                      <option value="position-trading">Position Trading</option>
+                      <option value="long-term-investing">Long Term Investing</option>
+                      <option value="trend-following">Trend Following</option>
+                      <option value="mean-reversion">Mean Reversion</option>
+                      <option value="range-trading">Range Trading</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-terminal-accent mb-2">
+                      Conviction (1-10) *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={tradingSignalForm.conviction}
+                      onChange={(e) => setTradingSignalForm({ ...tradingSignalForm, conviction: Number(e.target.value) })}
+                      className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-terminal-accent mb-2">
+                      Entry Price *
+                    </label>
+                    <input
+                      type="text"
+                      value={tradingSignalForm.entryPrice}
+                      onChange={(e) => setTradingSignalForm({ ...tradingSignalForm, entryPrice: e.target.value })}
+                      className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent"
+                      placeholder="$95,000 - $98,000"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-terminal-accent mb-2">
+                      Stop Loss *
+                    </label>
+                    <input
+                      type="text"
+                      value={tradingSignalForm.stopLoss}
+                      onChange={(e) => setTradingSignalForm({ ...tradingSignalForm, stopLoss: e.target.value })}
+                      className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent"
+                      placeholder="$92,000"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-terminal-accent mb-2">
+                      Take Profit 1 *
+                    </label>
+                    <input
+                      type="text"
+                      value={tradingSignalForm.takeProfit1}
+                      onChange={(e) => setTradingSignalForm({ ...tradingSignalForm, takeProfit1: e.target.value })}
+                      className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent"
+                      placeholder="$110,000"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-terminal-accent mb-2">
+                      Take Profit 2
+                    </label>
+                    <input
+                      type="text"
+                      value={tradingSignalForm.takeProfit2}
+                      onChange={(e) => setTradingSignalForm({ ...tradingSignalForm, takeProfit2: e.target.value })}
+                      className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent"
+                      placeholder="$125,000"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-terminal-accent mb-2">
+                      Take Profit 3
+                    </label>
+                    <input
+                      type="text"
+                      value={tradingSignalForm.takeProfit3}
+                      onChange={(e) => setTradingSignalForm({ ...tradingSignalForm, takeProfit3: e.target.value })}
+                      className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent"
+                      placeholder="$140,000"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-terminal-accent mb-2">
+                      Image Analysis (Optional)
+                    </label>
+                    <input
+                      type="url"
+                      value={tradingSignalForm.image || ''}
+                      onChange={(e) => setTradingSignalForm({ ...tradingSignalForm, image: e.target.value })}
+                      className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent placeholder-gray-400"
+                      placeholder="https://example.com/chart-image.jpg"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">URL to chart or analysis image</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-terminal-accent mb-2">
+                    Reasoning / Analysis *
+                  </label>
+                  <textarea
+                    value={tradingSignalForm.reasoning}
+                    onChange={(e) => setTradingSignalForm({ ...tradingSignalForm, reasoning: e.target.value })}
+                    className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent placeholder-gray-400 resize-none"
+                    rows={4}
+                    placeholder="Explain your analysis, chart patterns, indicators, or reasoning behind this signal..."
+                    required
+                  />
+                </div>
+
+                <div className="pt-4 border-t border-terminal-border">
+                  <p className="text-xs text-gray-400 mb-4">
+                    Signal will be reviewed by admin before being published.
+                  </p>
+                  <div className="flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowTradingSignalForm(false)}
+                      className="px-6 py-2 text-sm border border-terminal-border rounded hover:bg-terminal-panel transition-colors text-gray-300"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2 text-sm bg-terminal-accent text-black rounded hover:bg-terminal-accent/80 transition-colors font-medium"
+                    >
+                      Submit Signal
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Market Update Form Modal */}
+      {showMarketUpdateForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-terminal-bg border border-terminal-border rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-terminal-accent">Submit Market Update</h2>
+                <button
+                  onClick={() => setShowMarketUpdateForm(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <FontAwesomeIcon icon={faMinus} className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleMarketUpdateSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-terminal-accent mb-2">
+                    Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={marketUpdateForm.title}
+                    onChange={(e) => setMarketUpdateForm({ ...marketUpdateForm, title: e.target.value })}
+                    className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent placeholder-gray-400"
+                    placeholder="Market update title..."
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-terminal-accent mb-2">
+                    Image URL (optional)
+                  </label>
+                  <input
+                    type="url"
+                    value={marketUpdateForm.imageUrl}
+                    onChange={(e) => setMarketUpdateForm({ ...marketUpdateForm, imageUrl: e.target.value })}
+                    className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent placeholder-gray-400"
+                    placeholder="https://example.com/chart.png"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-terminal-accent mb-2">
+                    Content *
+                  </label>
+                  <textarea
+                    value={marketUpdateForm.content}
+                    onChange={(e) => setMarketUpdateForm({ ...marketUpdateForm, content: e.target.value })}
+                    className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent placeholder-gray-400 resize-none"
+                    rows={6}
+                    placeholder="Share your market insights, analysis, trends, or important updates..."
+                    required
+                  />
+                </div>
+
+                <div className="pt-4 border-t border-terminal-border">
+                  <p className="text-xs text-gray-400 mb-4">
+                    Market update will be reviewed by admin before being published.
+                  </p>
+                  <div className="flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowMarketUpdateForm(false)}
+                      className="px-6 py-2 text-sm border border-terminal-border rounded hover:bg-terminal-panel transition-colors text-gray-300"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2 text-sm bg-terminal-accent text-black rounded hover:bg-terminal-accent/80 transition-colors font-medium"
+                    >
+                      Submit Update
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

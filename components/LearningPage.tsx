@@ -2,46 +2,79 @@
 
 import { useState, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSignal, faTimes, faPlus, faSearch, faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { faSignal, faTimes, faPlus, faSearch, faChevronLeft, faChevronRight, faImage, faFilePdf } from '@fortawesome/free-solid-svg-icons';
 import useSWR from 'swr';
-import { fetchLearning, fetchAcademy } from '@/lib/api-fallback';
 
-const fetcherLearning = (url: string) => fetchLearning(url).then((res) => res.json());
-const fetcherAcademy = (url: string) => fetchAcademy(url).then((res) => res.json());
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function LearningPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
+  // Image upload states
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
   // Learning form state
-  const [learningForm, setLearningForm] = useState({ link: '', author: '', messageId: '', description: '' });
+  const [learningForm, setLearningForm] = useState({ 
+    title: '',
+    description: '',
+    link: '', 
+    author: '', 
+    pdfUrl: '',
+    imageUrl: '',
+    category: 'beginner',
+    difficulty: 1,
+    tags: [],
+    messageId: '' 
+  });
   const [learningSubmitting, setLearningSubmitting] = useState(false);
   const [learningSubmitMessage, setLearningSubmitMessage] = useState('');
   const [learningSubmitError, setLearningSubmitError] = useState(false);
 
   // Academy form state
-  const [academyForm, setAcademyForm] = useState({ link: '', author: '', deskripsi: '', messageId: '' });
+  const [academyForm, setAcademyForm] = useState({ 
+    title: '',
+    deskripsi: '',
+    link: '', 
+    author: '', 
+    pdfUrl: '',
+    imageUrl: '',
+    type: 'course',
+    tags: [],
+    messageId: '' 
+  });
   const [academySubmitting, setAcademySubmitting] = useState(false);
   const [academySubmitMessage, setAcademySubmitMessage] = useState('');
   const [academySubmitError, setAcademySubmitError] = useState(false);
   const [isAcademyModalOpen, setIsAcademyModalOpen] = useState(false);
 
-  // Fetch learning items
-  const { data: learningData, error: learningError, mutate: mutateLearning } = useSWR('learning', fetcherLearning);
+  // Fetch learning items with category filter
+  const learningUrl = selectedCategory ? `/api/learning?category=${selectedCategory}` : '/api/learning';
+  const { data: learningData, error: learningError, mutate: mutateLearning } = useSWR(learningUrl, fetcher);
 
   // Fetch academy items
-  const { data: academyData, error: academyError, mutate: mutateAcademy } = useSWR('academy', fetcherAcademy);
+  const { data: academyData, error: academyError, mutate: mutateAcademy } = useSWR('/api/academy', fetcher);
 
   // Filtered and paginated learning data
   const filteredLearningData = useMemo(() => {
     if (!learningData?.data) return [];
-    return learningData.data.filter((item: any) =>
-      item.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.author?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    let filtered = learningData.data;
+    
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter((item: any) =>
+        item.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.author?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    return filtered;
   }, [learningData, searchTerm]);
 
   const totalPages = Math.ceil(filteredLearningData.length / itemsPerPage);
@@ -54,6 +87,52 @@ export default function LearningPage() {
     setCurrentPage(1);
   };
 
+  // Handle category selection
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(category);
+    setSearchTerm(''); // Clear search when selecting category
+    setCurrentPage(1);
+  };
+
+  // Handle image selection
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onload = () => setImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle image upload
+  const uploadImage = async (): Promise<string | null> => {
+    if (!selectedImage) return null;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', selectedImage);
+      formData.append('name', `learning-${Date.now()}`);
+
+      const response = await fetch('/api/upload/image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        return result.data.display_url;
+      }
+      throw new Error('Upload failed');
+    } catch (error) {
+      console.error('Image upload error:', error);
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
   // Handle learning form submission
   const handleLearningSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,15 +141,37 @@ export default function LearningPage() {
     setLearningSubmitError(false);
 
     try {
-      const response = await fetchLearning('', {
+      // Upload image if selected
+      let imageUrl = learningForm.imageUrl;
+      if (selectedImage) {
+        imageUrl = await uploadImage() || '';
+      }
+
+      const response = await fetch('/api/learning', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(learningForm),
+        body: JSON.stringify({
+          ...learningForm,
+          imageUrl
+        }),
       });
 
       if (response.ok) {
         setLearningSubmitMessage('Learning resource added successfully!');
-        setLearningForm({ link: '', author: '', messageId: '', description: '' });
+        setLearningForm({ 
+          title: '',
+          description: '',
+          link: '', 
+          author: '', 
+          pdfUrl: '',
+          imageUrl: '',
+          category: 'beginner',
+          difficulty: 1,
+          tags: [],
+          messageId: '' 
+        });
+        setSelectedImage(null);
+        setImagePreview(null);
         mutateLearning(); // Refresh the learning list
         setIsModalOpen(false); // Close modal on success
       } else {
@@ -92,15 +193,36 @@ export default function LearningPage() {
     setAcademySubmitError(false);
 
     try {
-      const response = await fetchAcademy('', {
+      // Upload image if selected
+      let imageUrl = academyForm.imageUrl;
+      if (selectedImage) {
+        imageUrl = await uploadImage() || '';
+      }
+
+      const response = await fetch('/api/academy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(academyForm),
+        body: JSON.stringify({
+          ...academyForm,
+          imageUrl
+        }),
       });
 
       if (response.ok) {
         setAcademySubmitMessage('Academy resource added successfully!');
-        setAcademyForm({ link: '', author: '', deskripsi: '', messageId: '' });
+        setAcademyForm({ 
+          title: '',
+          deskripsi: '',
+          link: '', 
+          author: '', 
+          pdfUrl: '',
+          imageUrl: '',
+          type: 'course',
+          tags: [],
+          messageId: '' 
+        });
+        setSelectedImage(null);
+        setImagePreview(null);
         mutateAcademy(); // Refresh the academy list
         setIsAcademyModalOpen(false); // Close modal on success
       } else {
@@ -124,7 +246,7 @@ export default function LearningPage() {
       </div>
 
       {/* Add Learning Resource Button */}
-      <div className="mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <button
           onClick={() => setIsModalOpen(true)}
           className="px-4 py-2 bg-terminal-accent text-black font-medium rounded hover:bg-terminal-accent/80 transition-colors flex items-center space-x-2"
@@ -132,34 +254,75 @@ export default function LearningPage() {
           <FontAwesomeIcon icon={faPlus} className="w-4 h-4" />
           <span>Add Learning Resource</span>
         </button>
+        <div className="text-sm text-gray-400">
+          💡 Track your submission status in <strong className="text-terminal-accent">Submissions</strong> (ALT+6)
+        </div>
       </div>
 
       {/* Learning Categories */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-terminal-bg rounded-lg border border-terminal-border p-4 text-center">
+        <button
+          onClick={() => handleCategorySelect('beginner')}
+          className={`bg-terminal-bg rounded-lg border p-4 text-center hover:border-terminal-accent transition-colors cursor-pointer ${
+            selectedCategory === 'beginner' ? 'border-terminal-accent' : 'border-terminal-border'
+          }`}
+        >
           <div className="text-2xl mb-2">🌱</div>
           <h3 className="text-sm font-semibold text-terminal-accent mb-1">Beginner</h3>
           <p className="text-xs text-gray-400">Crypto basics, wallet setup, first investments</p>
-          <div className="mt-3 text-xs text-green-400">12 courses available</div>
-        </div>
+          <div className="mt-3 text-xs text-green-400">
+            {learningData?.stats?.beginner || 0} courses available
+          </div>
+        </button>
 
-        <div className="bg-terminal-bg rounded-lg border border-terminal-border p-4 text-center">
+        <button
+          onClick={() => handleCategorySelect('intermediate')}
+          className={`bg-terminal-bg rounded-lg border p-4 text-center hover:border-terminal-accent transition-colors cursor-pointer ${
+            selectedCategory === 'intermediate' ? 'border-terminal-accent' : 'border-terminal-border'
+          }`}
+        >
           <div className="text-2xl mb-2">📈</div>
           <h3 className="text-sm font-semibold text-terminal-accent mb-1">Intermediate</h3>
           <p className="text-xs text-gray-400">Technical analysis, DeFi, trading strategies</p>
-          <div className="mt-3 text-xs text-yellow-400">8 courses available</div>
-        </div>
+          <div className="mt-3 text-xs text-yellow-400">
+            {learningData?.stats?.intermediate || 0} courses available
+          </div>
+        </button>
 
-        <div className="bg-terminal-bg rounded-lg border border-terminal-border p-4 text-center">
+        <button
+          onClick={() => handleCategorySelect('advanced')}
+          className={`bg-terminal-bg rounded-lg border p-4 text-center hover:border-terminal-accent transition-colors cursor-pointer ${
+            selectedCategory === 'advanced' ? 'border-terminal-accent' : 'border-terminal-border'
+          }`}
+        >
           <div className="text-2xl mb-2">🚀</div>
           <h3 className="text-sm font-semibold text-terminal-accent mb-1">Advanced</h3>
           <p className="text-xs text-gray-400">On-chain analysis, quantitative trading, research</p>
-          <div className="mt-3 text-xs text-red-400">5 courses available</div>
-        </div>
+          <div className="mt-3 text-xs text-red-400">
+            {learningData?.stats?.advanced || 0} courses available
+          </div>
+        </button>
       </div>
 
-      {/* User Submitted Learning Resources */}
-      {Array.isArray(learningData?.data) && learningData.data.length > 0 && (
+      {/* Category Filter Display */}
+      {selectedCategory && (
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-terminal-accent">
+              Showing: {selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)} courses
+            </span>
+            <button
+              onClick={() => handleCategorySelect('')}
+              className="px-2 py-1 text-xs bg-terminal-border text-terminal-accent rounded hover:bg-terminal-accent hover:text-black transition-colors"
+            >
+              Clear filter
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* User Submitted Learning Resources - Hidden */}
+      {false && Array.isArray(learningData?.data) && learningData.data.length > 0 && (
         <div className="mb-8">
           <h3 className="text-lg font-semibold text-terminal-accent mb-4">📚 Submitted Resources</h3>
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -206,73 +369,7 @@ export default function LearningPage() {
         </div>
       )}
 
-      {/* Featured Courses */}
-      <div className="mb-8">
-        <h3 className="text-lg font-semibold text-terminal-accent mb-4">⭐ Featured Courses</h3>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Course 1 */}
-          <div className="bg-terminal-bg rounded-lg border border-terminal-border overflow-hidden">
-            <div className="aspect-video bg-terminal-panel flex items-center justify-center">
-              <div className="text-center">
-                <FontAwesomeIcon icon={faSignal} className="w-12 h-12 text-terminal-accent mb-2" />
-                <div className="text-sm text-gray-400">Course Preview</div>
-              </div>
-            </div>
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded">Beginner</span>
-                <span className="text-xs text-gray-500">2h 30m</span>
-              </div>
-              <h4 className="text-sm font-semibold text-terminal-accent mb-2">
-                Cryptocurrency Fundamentals
-              </h4>
-              <p className="text-xs text-gray-400 mb-3">
-                Learn the basics of cryptocurrency, blockchain technology, and how digital assets work
-              </p>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-1">
-                  <FontAwesomeIcon icon={faSignal} className="w-3 h-3 text-terminal-accent" />
-                  <span className="text-xs text-terminal-accent">By Azis Maulana</span>
-                </div>
-                <button className="px-3 py-1 bg-terminal-accent text-black text-xs font-medium rounded hover:bg-terminal-accent/80 transition-colors">
-                  ▶️ Start Learning
-                </button>
-              </div>
-            </div>
-          </div>
 
-          {/* Course 2 */}
-          <div className="bg-terminal-bg rounded-lg border border-terminal-border overflow-hidden">
-            <div className="aspect-video bg-terminal-panel flex items-center justify-center">
-              <div className="text-center">
-                <FontAwesomeIcon icon={faSignal} className="w-12 h-12 text-terminal-accent mb-2" />
-                <div className="text-sm text-gray-400">Course Preview</div>
-              </div>
-            </div>
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded">Intermediate</span>
-                <span className="text-xs text-gray-500">4h 15m</span>
-              </div>
-              <h4 className="text-sm font-semibold text-terminal-accent mb-2">
-                Technical Analysis Mastery
-              </h4>
-              <p className="text-xs text-gray-400 mb-3">
-                Master chart reading, candlestick patterns, indicators, and trading strategies
-              </p>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-1">
-                  <FontAwesomeIcon icon={faSignal} className="w-3 h-3 text-terminal-accent" />
-                  <span className="text-xs text-terminal-accent">By Azis Maulana</span>
-                </div>
-                <button className="px-3 py-1 bg-terminal-accent text-black text-xs font-medium rounded hover:bg-terminal-accent/80 transition-colors">
-                  ▶️ Start Learning
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Course Library with Search and Pagination */}
       <div className="mb-8">
@@ -329,9 +426,14 @@ export default function LearningPage() {
                   </div>
                   <h4 className="text-sm font-semibold text-terminal-accent mb-2">{title}</h4>
                   {description && <p className="text-xs text-gray-400 mb-3">{description}</p>}
-                  <button className="w-full px-3 py-2 bg-terminal-accent text-black text-xs font-medium rounded hover:bg-terminal-accent/80 transition-colors">
+                  <a
+                    href={item.link || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full px-3 py-2 bg-terminal-accent text-black text-xs font-medium rounded hover:bg-terminal-accent/80 transition-colors inline-block text-center"
+                  >
                     ▶️ Start Course
-                  </button>
+                  </a>
                 </div>
               );
             })
@@ -491,15 +593,28 @@ export default function LearningPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-terminal-accent mb-2">Message ID</label>
+                <label className="block text-sm font-medium text-terminal-accent mb-2">Title</label>
                 <input
                   type="text"
-                  value={learningForm.messageId}
-                  onChange={(e) => setLearningForm({ ...learningForm, messageId: e.target.value })}
+                  value={learningForm.title}
+                  onChange={(e) => setLearningForm({ ...learningForm, title: e.target.value })}
                   className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent placeholder-gray-500 focus:outline-none focus:border-terminal-accent"
-                  placeholder="Unique message ID"
+                  placeholder="Resource title or topic"
                   required
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-terminal-accent mb-2">Category</label>
+                <select
+                  value={learningForm.category}
+                  onChange={(e) => setLearningForm({ ...learningForm, category: e.target.value })}
+                  className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent focus:outline-none focus:border-terminal-accent"
+                  required
+                >
+                  <option value="beginner">🌱 Beginner - Crypto basics, wallet setup</option>
+                  <option value="intermediate">📈 Intermediate - Technical analysis, DeFi</option>
+                  <option value="advanced">🚀 Advanced - On-chain analysis, research</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-terminal-accent mb-2">Description (Optional)</label>
@@ -585,13 +700,13 @@ export default function LearningPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-terminal-accent mb-2">Message ID</label>
+                <label className="block text-sm font-medium text-terminal-accent mb-2">Title</label>
                 <input
                   type="text"
-                  value={academyForm.messageId}
-                  onChange={(e) => setAcademyForm({ ...academyForm, messageId: e.target.value })}
+                  value={academyForm.title}
+                  onChange={(e) => setAcademyForm({ ...academyForm, title: e.target.value })}
                   className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent placeholder-gray-500 focus:outline-none focus:border-terminal-accent"
-                  placeholder="Unique message ID"
+                  placeholder="Resource title or topic"
                   required
                 />
               </div>

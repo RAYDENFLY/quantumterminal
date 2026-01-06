@@ -1,56 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// In-memory storage for signals (replace with database in production)
-let signals: any[] = [
-  {
-    id: '1',
-    title: 'BTC Breakout Signal',
-    description: 'Bitcoin showing strong bullish momentum above $50k',
-    symbol: 'BTC',
-    type: 'BUY',
-    price: 50123.45,
-    target: 52000,
-    stopLoss: 48000,
-    timestamp: new Date().toISOString(),
-    status: 'ACTIVE'
-  },
-  {
-    id: '2',
-    title: 'ETH Accumulation Phase',
-    description: 'Ethereum entering accumulation phase after recent dip',
-    symbol: 'ETH',
-    type: 'HOLD',
-    price: 2456.78,
-    target: 2800,
-    stopLoss: 2200,
-    timestamp: new Date().toISOString(),
-    status: 'ACTIVE'
-  }
-];
+import connectDB from '@/lib/mongodb';
+import Signals from '@/models/Signals';
 
 // GET /api/signals - Get all signals
 export async function GET(request: NextRequest) {
   try {
+    await connectDB();
+
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search');
     const symbol = searchParams.get('symbol');
+    const type = searchParams.get('type');
+    const status = searchParams.get('status');
+    const tags = searchParams.get('tags');
 
-    let filteredSignals = signals;
+    const skip = (page - 1) * limit;
 
-    if (status) {
-      filteredSignals = filteredSignals.filter(signal => signal.status === status);
+    // Build query
+    let query: any = {};
+
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
     }
 
     if (symbol) {
-      filteredSignals = filteredSignals.filter(signal => signal.symbol === symbol);
+      query.symbol = { $regex: symbol, $options: 'i' };
     }
+
+    if (type) {
+      query.type = type;
+    }
+
+    if (status) {
+      query.status = status;
+    }
+
+    if (tags) {
+      query.tags = { $in: tags.split(',').map(tag => tag.trim()) };
+    }
+
+    // Get total count
+    const total = await Signals.countDocuments(query);
+
+    // Get signals
+    const signals = await Signals.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
     return NextResponse.json({
       success: true,
-      data: filteredSignals,
-      count: filteredSignals.length
+      data: signals,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
     });
+
   } catch (error) {
+    console.error('Error fetching signals:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch signals' },
       { status: 500 }
@@ -61,6 +77,8 @@ export async function GET(request: NextRequest) {
 // POST /api/signals - Create a new signal
 export async function POST(request: NextRequest) {
   try {
+    await connectDB();
+
     const body = await request.json();
 
     // Validate required fields
@@ -72,27 +90,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newSignal = {
-      id: Date.now().toString(),
+    // Create new signal
+    const signal = new Signals({
       title,
       description,
       symbol,
       type,
       price: parseFloat(price),
-      target: body.target ? parseFloat(body.target) : null,
-      stopLoss: body.stopLoss ? parseFloat(body.stopLoss) : null,
-      timestamp: new Date().toISOString(),
-      status: body.status || 'ACTIVE'
-    };
+      target: body.target ? parseFloat(body.target) : undefined,
+      stopLoss: body.stopLoss ? parseFloat(body.stopLoss) : undefined,
+      status: body.status || 'ACTIVE',
+      performance: body.performance || { pnl: 0, percentage: 0 },
+      tags: body.tags || []
+    });
 
-    signals.push(newSignal);
+    await signal.save();
 
     return NextResponse.json({
       success: true,
-      data: newSignal,
+      data: signal,
       message: 'Signal created successfully'
     }, { status: 201 });
-  } catch (error) {
+
+  } catch (error: any) {
+    console.error('Error creating signal:', error);
+    
+    if (error.name === 'ValidationError') {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { success: false, error: 'Failed to create signal' },
       { status: 500 }
@@ -103,8 +132,10 @@ export async function POST(request: NextRequest) {
 // PATCH /api/signals - Update a signal
 export async function PATCH(request: NextRequest) {
   try {
+    await connectDB();
+
     const body = await request.json();
-    const { id } = body;
+    const { id, ...updateData } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -113,27 +144,40 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const signalIndex = signals.findIndex(signal => signal.id === id);
-    if (signalIndex === -1) {
+    // Convert price fields to numbers if provided
+    if (updateData.price) updateData.price = parseFloat(updateData.price);
+    if (updateData.target) updateData.target = parseFloat(updateData.target);
+    if (updateData.stopLoss) updateData.stopLoss = parseFloat(updateData.stopLoss);
+
+    const signal = await Signals.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!signal) {
       return NextResponse.json(
         { success: false, error: 'Signal not found' },
         { status: 404 }
       );
     }
 
-    // Update signal
-    signals[signalIndex] = {
-      ...signals[signalIndex],
-      ...body,
-      updatedAt: new Date().toISOString()
-    };
-
     return NextResponse.json({
       success: true,
-      data: signals[signalIndex],
+      data: signal,
       message: 'Signal updated successfully'
     });
-  } catch (error) {
+
+  } catch (error: any) {
+    console.error('Error updating signal:', error);
+    
+    if (error.name === 'ValidationError') {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { success: false, error: 'Failed to update signal' },
       { status: 500 }
@@ -144,6 +188,8 @@ export async function PATCH(request: NextRequest) {
 // DELETE /api/signals - Delete a signal by ID
 export async function DELETE(request: NextRequest) {
   try {
+    await connectDB();
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -154,22 +200,23 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const signalIndex = signals.findIndex(signal => signal.id === id);
-    if (signalIndex === -1) {
+    const signal = await Signals.findByIdAndDelete(id);
+
+    if (!signal) {
       return NextResponse.json(
         { success: false, error: 'Signal not found' },
         { status: 404 }
       );
     }
 
-    const deletedSignal = signals.splice(signalIndex, 1)[0];
-
     return NextResponse.json({
       success: true,
-      data: deletedSignal,
+      data: signal,
       message: 'Signal deleted successfully'
     });
+
   } catch (error) {
+    console.error('Error deleting signal:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to delete signal' },
       { status: 500 }

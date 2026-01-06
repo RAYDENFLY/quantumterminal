@@ -26,7 +26,6 @@ async function getDuneTransactions() {
     // For free tier, we'll use a simplified approach
     // Dune requires saved queries for execution, so we'll return empty for now
     // In production, you'd create and save queries in Dune dashboard
-    console.warn('Dune Analytics requires saved queries for free tier - skipping for now');
     return [];
 
     // Original code (commented out until we have a valid query_id):
@@ -138,8 +137,7 @@ async function getFlipsideTransactions() {
     }
 
     // Fallback to Etherscan API for large transactions
-    console.warn('Using Etherscan as fallback for whale transactions');
-
+    
     // Get recent blocks and large transactions
     const response = await fetch(
       `https://api.etherscan.io/api?module=account&action=txlist&address=0x8894e0a0c962cb723c1976a4421c95949be2d4e3&startblock=0&endblock=99999999&page=1&offset=10&sort=desc&apikey=${ETHERSCAN_API_KEY}`
@@ -279,8 +277,16 @@ async function getLargeTransactions() {
 // Get whale transfers from Arkham Lite indexer
 async function getArkhamWhaleTransfers() {
   try {
+    // Skip Arkham Lite integration for now to avoid circular calls
+    // TODO: Implement direct Arkham API integration
+    return [];
+    
+    /* Commented out to prevent circular API calls
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/arkham-lite?action=whale-transfers&limit=20`
+      `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/arkham-lite?action=whale-transfers&limit=20`,
+      {
+        signal: AbortSignal.timeout(3000) // 3 second timeout
+      }
     );
 
     if (!response.ok) {
@@ -327,6 +333,7 @@ async function getArkhamWhaleTransfers() {
         chain: transfer.chain
       };
     });
+    */
   } catch (error) {
     console.error('Failed to fetch Arkham whale transfers:', error);
     return [];

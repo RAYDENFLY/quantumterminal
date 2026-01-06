@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
-import Academy from '@/models/Academy';
+import Research from '@/models/Research';
 
-// GET /api/academy - Get all academy submissions
+// GET /api/research - Get all research submissions
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
@@ -12,7 +12,6 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search');
     const author = searchParams.get('author');
-    const type = searchParams.get('type');
     const tags = searchParams.get('tags');
 
     const skip = (page - 1) * limit;
@@ -25,7 +24,7 @@ export async function GET(request: NextRequest) {
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
-        { deskripsi: { $regex: search, $options: 'i' } }
+        { description: { $regex: search, $options: 'i' } }
       ];
     }
 
@@ -33,19 +32,15 @@ export async function GET(request: NextRequest) {
       query.author = { $regex: author, $options: 'i' };
     }
 
-    if (type) {
-      query.type = type;
-    }
-
     if (tags) {
       query.tags = { $in: tags.split(',').map(tag => tag.trim()) };
     }
 
     // Get total count
-    const total = await Academy.countDocuments(query);
+    const total = await Research.countDocuments(query);
 
-    // Get academy submissions
-    const academy = await Academy.find(query)
+    // Get research submissions
+    const research = await Research.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -53,7 +48,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: academy,
+      research: research, // Change from 'data' to 'research' to match expected format
       pagination: {
         page,
         limit,
@@ -63,54 +58,55 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching academy:', error);
+    console.error('Error fetching research:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch academy submissions' },
+      { success: false, error: 'Failed to fetch research submissions' },
       { status: 500 }
     );
   }
 }
 
-// POST /api/academy - Create a new academy submission
+// POST /api/research - Create a new research submission
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
 
     const body = await request.json();
+    console.log('Research POST body:', body);
 
     // Validate required fields
-    const { title, deskripsi, author, link } = body;
-    if (!title || !deskripsi || !author || !link) {
+    const { title, author, link } = body;
+    if (!title || !author || !link) {
+      console.log('Validation failed:', { title: !!title, author: !!author, link: !!link });
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: title, deskripsi, author, link' },
+        { success: false, error: 'Missing required fields: title, author, link' },
         { status: 400 }
       );
     }
 
-    // Create new academy submission
-    const academy = new Academy({
+    // Create new research submission
+    const research = new Research({
       title,
-      deskripsi,
+      description: body.description || '',
       author,
       link,
       pdfUrl: body.pdfUrl || '',
       imageUrl: body.imageUrl || '',
-      type: body.type || 'course',
       tags: body.tags || [],
       messageId: body.messageId || '',
       status: 'pending' // All new submissions start as pending
     });
 
-    await academy.save();
+    await research.save();
 
     return NextResponse.json({
       success: true,
-      data: academy,
-      message: 'Academy submission created successfully'
+      data: research,
+      message: 'Research submission created successfully'
     }, { status: 201 });
 
   } catch (error: any) {
-    console.error('Error creating academy:', error);
+    console.error('Error creating research:', error);
     
     if (error.name === 'ValidationError') {
       return NextResponse.json(
@@ -120,13 +116,13 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { success: false, error: 'Failed to create academy submission' },
+      { success: false, error: 'Failed to create research submission' },
       { status: 500 }
     );
   }
 }
 
-// DELETE /api/academy - Delete an academy submission by ID
+// DELETE /api/research - Delete a research submission by ID
 export async function DELETE(request: NextRequest) {
   try {
     await connectDB();
@@ -136,30 +132,30 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json(
-        { success: false, error: 'Academy ID is required' },
+        { success: false, error: 'Research ID is required' },
         { status: 400 }
       );
     }
 
-    const academy = await Academy.findByIdAndDelete(id);
+    const research = await Research.findByIdAndDelete(id);
 
-    if (!academy) {
+    if (!research) {
       return NextResponse.json(
-        { success: false, error: 'Academy submission not found' },
+        { success: false, error: 'Research submission not found' },
         { status: 404 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      data: academy,
-      message: 'Academy submission deleted successfully'
+      data: research,
+      message: 'Research submission deleted successfully'
     });
 
   } catch (error) {
-    console.error('Error deleting academy:', error);
+    console.error('Error deleting research:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to delete academy submission' },
+      { success: false, error: 'Failed to delete research submission' },
       { status: 500 }
     );
   }
