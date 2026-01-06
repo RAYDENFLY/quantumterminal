@@ -17,7 +17,8 @@ import {
   faGraduationCap,
   faUniversity,
   faNewspaper,
-  faChartLine
+  faChartLine,
+  faTrash
 } from '@fortawesome/free-solid-svg-icons';
 
 interface DashboardStats {
@@ -64,6 +65,10 @@ export default function AdminDashboard() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState<SubmissionItem | null>(null);
+  const [showApproveModal, setShowApproveModal] = useState<string | null>(null);
+  const [approvalReason, setApprovalReason] = useState('');
+  const [deleteReason, setDeleteReason] = useState('');
   const router = useRouter();
 
   useEffect(() => {
@@ -125,15 +130,27 @@ export default function AdminDashboard() {
   };
 
   const handleApprove = async (id: string, type: string) => {
+    if (!approvalReason.trim()) {
+      alert('Please provide an approval reason');
+      return;
+    }
+
     try {
       setActionLoading(id);
       const response = await fetch('/api/admin/dashboard', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, type, action: 'approve' })
+        body: JSON.stringify({ 
+          id, 
+          type, 
+          action: 'approve',
+          reason: approvalReason 
+        })
       });
 
       if (response.ok) {
+        setShowApproveModal(null);
+        setApprovalReason('');
         loadDashboard();
       }
     } catch (error) {
@@ -158,7 +175,7 @@ export default function AdminDashboard() {
           id, 
           type, 
           action: 'reject',
-          rejectedReason: rejectionReason 
+          reason: rejectionReason 
         })
       });
 
@@ -169,6 +186,46 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       console.error('Error rejecting item:', error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDelete = async (itemId: string) => {
+    if (!deleteReason.trim()) {
+      alert('Please provide a deletion reason');
+      return;
+    }
+
+    // Find the item to get its type
+    const item = items.find(item => item._id === itemId);
+    if (!item) {
+      alert('Item not found');
+      return;
+    }
+
+    try {
+      setActionLoading(itemId);
+      const response = await fetch('/api/admin/dashboard', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          id: itemId, 
+          type: item.type,
+          reason: deleteReason 
+        })
+      });
+
+      if (response.ok) {
+        setShowDeleteModal(null);
+        setDeleteReason('');
+        loadDashboard();
+      } else {
+        alert('Failed to delete item');
+      }
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      alert('Error deleting item');
     } finally {
       setActionLoading(null);
     }
@@ -224,6 +281,13 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-400">Welcome, {user?.email}</span>
+              <button
+                onClick={() => router.push('/admin/logs')}
+                className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
+              >
+                <FontAwesomeIcon icon={faEye} className="w-4 h-4 mr-1" />
+                View Logs
+              </button>
               <button
                 onClick={handleLogout}
                 className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-sm"
@@ -345,24 +409,39 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
-                      {item.status === 'pending' && (
-                        <div className="flex items-center space-x-2 ml-4">
-                          <button
-                            onClick={() => handleApprove(item._id, item.type)}
-                            disabled={actionLoading === item._id}
-                            className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50"
-                          >
-                            <FontAwesomeIcon icon={faCheck} className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={() => setShowRejectModal(item._id)}
-                            disabled={actionLoading === item._id}
-                            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50"
-                          >
-                            <FontAwesomeIcon icon={faTimes} className="w-3 h-3" />
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex items-center space-x-2 ml-4">
+                        {/* Delete button only */}
+                        <button
+                          onClick={() => setShowDeleteModal(item)}
+                          disabled={actionLoading === item._id}
+                          className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50"
+                          title="Delete"
+                        >
+                          <FontAwesomeIcon icon={faTrash} className="w-3 h-3" />
+                        </button>
+                        
+                        {/* Approve/Reject only for pending items */}
+                        {item.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => handleApprove(item._id, item.type)}
+                              disabled={actionLoading === item._id}
+                              className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50"
+                              title="Approve"
+                            >
+                              <FontAwesomeIcon icon={faCheck} className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => setShowRejectModal(item._id)}
+                              disabled={actionLoading === item._id}
+                              className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors disabled:opacity-50"
+                              title="Reject"
+                            >
+                              <FontAwesomeIcon icon={faTimes} className="w-3 h-3" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -427,6 +506,48 @@ export default function AdminDashboard() {
                 onClick={() => {
                   setShowRejectModal(null);
                   setRejectionReason('');
+                }}
+                className="px-4 py-2 bg-terminal-panel border border-terminal-border text-terminal-accent rounded hover:bg-terminal-border transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Modal with Reason */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-terminal-bg rounded-lg border border-terminal-border p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-red-400 mb-4">Delete Item</h3>
+            <p className="text-gray-300 mb-4">
+              Are you sure you want to delete this item? This action cannot be undone.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-terminal-accent mb-2">
+                Reason for deletion *
+              </label>
+              <textarea
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="Enter reason for deletion..."
+                className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent placeholder-gray-500 focus:outline-none focus:border-terminal-accent h-20 resize-none"
+                required
+              />
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => handleDelete(showDeleteModal._id)}
+                disabled={actionLoading === showDeleteModal._id}
+                className="flex-1 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteModal(null);
+                  setDeleteReason('');
                 }}
                 className="px-4 py-2 bg-terminal-panel border border-terminal-border text-terminal-accent rounded hover:bg-terminal-border transition-colors"
               >

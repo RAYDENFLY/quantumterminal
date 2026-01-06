@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     if (type) {
       // Fetch from specific collection
-      let items = [];
+      let items: any[] = [];
       let total = 0;
 
       switch (type) {

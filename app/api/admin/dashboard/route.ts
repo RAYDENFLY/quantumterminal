@@ -5,6 +5,7 @@ import Learning from '@/models/Learning';
 import Academy from '@/models/Academy';
 import MarketUpdate from '@/models/MarketUpdate';
 import TradingSignal from '@/models/TradingSignal';
+import AuditLog from '@/models/AuditLog';
 import { withAuth } from '@/lib/auth';
 
 // GET /api/admin/dashboard - Get admin dashboard stats and pending items
@@ -169,13 +170,33 @@ export const GET = withAuth(async (request: NextRequest) => {
   }
 });
 
+// Helper function to create audit logs
+async function createAuditLog(adminId: string, adminEmail: string, action: 'approve' | 'reject' | 'delete', targetType: string, targetId: string, targetTitle: string, reason: string, request: NextRequest) {
+  try {
+    const auditLog = new AuditLog({
+      adminId,
+      adminEmail,
+      action,
+      targetType,
+      targetId,
+      targetTitle,
+      reason,
+      ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+      userAgent: request.headers.get('user-agent') || 'unknown'
+    });
+    await auditLog.save();
+  } catch (error) {
+    console.error('Failed to create audit log:', error);
+  }
+}
+
 // PATCH /api/admin/dashboard - Approve or reject submissions
 export const PATCH = withAuth(async (request: NextRequest, user) => {
   try {
     await connectDB();
 
     const body = await request.json();
-    const { id, type, action, rejectedReason } = body;
+    const { id, type, action, reason } = body;
 
     if (!id || !type || !action) {
       return NextResponse.json(
@@ -191,9 +212,9 @@ export const PATCH = withAuth(async (request: NextRequest, user) => {
       );
     }
 
-    if (action === 'reject' && !rejectedReason) {
+    if (!reason || reason.trim() === '') {
       return NextResponse.json(
-        { success: false, error: 'Rejection reason is required' },
+        { success: false, error: `Reason is required for ${action} action` },
         { status: 400 }
       );
     }
@@ -229,7 +250,7 @@ export const PATCH = withAuth(async (request: NextRequest, user) => {
     };
 
     if (action === 'reject') {
-      updateData.rejectedReason = rejectedReason;
+      updateData.rejectedReason = reason;
     }
 
     // For market updates, set publish date when approved
@@ -250,6 +271,18 @@ export const PATCH = withAuth(async (request: NextRequest, user) => {
       );
     }
 
+    // Create audit log
+    await createAuditLog(
+      user.id,
+      user.email,
+      action as 'approve' | 'reject',
+      type,
+      id,
+      item.title || item.headline || 'Untitled',
+      reason,
+      request
+    );
+
     return NextResponse.json({
       success: true,
       data: item,
@@ -260,6 +293,161 @@ export const PATCH = withAuth(async (request: NextRequest, user) => {
     console.error('Error updating submission status:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to update submission status' },
+      { status: 500 }
+    );
+  }
+});
+
+// DELETE /api/admin/dashboard - Delete an item
+export const DELETE = withAuth(async (request: NextRequest, user) => {
+  try {
+    await connectDB();
+
+    const { id, type, reason } = await request.json();
+
+    if (!id || !type) {
+      return NextResponse.json(
+        { success: false, error: 'ID and type are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!reason || reason.trim() === '') {
+      return NextResponse.json(
+        { success: false, error: 'Reason is required for deletion' },
+        { status: 400 }
+      );
+    }
+
+    // Get the appropriate model
+    const modelMap: { [key: string]: any } = {
+      'research': Research,
+      'learning': Learning,
+      'academy': Academy,
+      'market-update': MarketUpdate,
+      'trading-signals': TradingSignal
+    };
+
+    const Model = modelMap[type];
+    if (!Model) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid type' },
+        { status: 400 }
+      );
+    }
+
+    // Get item first to capture title for audit log
+    const itemToDelete = await Model.findById(id);
+    if (!itemToDelete) {
+      return NextResponse.json(
+        { success: false, error: 'Item not found' },
+        { status: 404 }
+      );
+    }
+
+    const deletedItem = await Model.findByIdAndDelete(id);
+
+    if (!deletedItem) {
+      return NextResponse.json(
+        { success: false, error: 'Item not found' },
+        { status: 404 }
+      );
+    }
+
+    // Create audit log
+    await createAuditLog(
+      user.id,
+      user.email,
+      'delete',
+      type,
+      id,
+      itemToDelete.title || itemToDelete.headline || 'Untitled',
+      reason,
+      request
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: `${type} deleted successfully`
+    });
+
+  } catch (error) {
+    console.error('Error deleting item:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete item' },
+      { status: 500 }
+    );
+  }
+});
+
+// PUT /api/admin/dashboard - Update an item
+export const PUT = withAuth(async (request: NextRequest) => {
+  try {
+    await connectDB();
+
+    const { id, type, title, description, content, author } = await request.json();
+
+    if (!id || !type) {
+      return NextResponse.json(
+        { success: false, error: 'ID and type are required' },
+        { status: 400 }
+      );
+    }
+
+    // Get the appropriate model
+    const modelMap: { [key: string]: any } = {
+      'research': Research,
+      'learning': Learning,
+      'academy': Academy,
+      'market-update': MarketUpdate,
+      'trading-signals': TradingSignal
+    };
+
+    const Model = modelMap[type];
+    if (!Model) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid type' },
+        { status: 400 }
+      );
+    }
+
+    // Prepare update data
+    const updateData: any = {};
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) {
+      // Handle different description field names
+      if (type === 'learning') {
+        updateData.deskripsi = description;
+      } else {
+        updateData.description = description;
+      }
+    }
+    if (content !== undefined) updateData.content = content;
+    if (author !== undefined) updateData.author = author;
+
+    const updatedItem = await Model.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedItem) {
+      return NextResponse.json(
+        { success: false, error: 'Item not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: updatedItem,
+      message: `${type} updated successfully`
+    });
+
+  } catch (error) {
+    console.error('Error updating item:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to update item' },
       { status: 500 }
     );
   }
