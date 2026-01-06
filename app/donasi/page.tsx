@@ -3,16 +3,6 @@ import Link from 'next/link';
 const DONATION_WALLET = '0xD4233500BAE4973782c5eaA427A667ABd6FE9e5f';
 const EXPLORER_URL = `https://bscscan.com/address/${DONATION_WALLET}`;
 
-function getBaseUrl() {
-  // For server-side fetch inside Next (including build), relative URLs can hang.
-  // Use Vercel URL if available, otherwise fall back to localhost.
-  const vercel = process.env.VERCEL_URL;
-  if (vercel) return `https://${vercel}`;
-  const publicUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (publicUrl) return publicUrl.replace(/\/$/, '');
-  return 'http://localhost:3000';
-}
-
 async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), timeoutMs);
@@ -30,7 +20,7 @@ async function fetchJsonWithTimeout(url: string, timeoutMs: number) {
 async function getLatestLog() {
   try {
     const json = (await fetchJsonWithTimeout(
-      `${getBaseUrl()}/api/donation-logs/latest`,
+  `/api/donation-logs/latest`,
       5000
     )) as { success: boolean; data: any };
     return json?.success ? json.data : null;
@@ -42,16 +32,21 @@ async function getLatestLog() {
 async function getWalletBalance() {
   try {
     const json = (await fetchJsonWithTimeout(
-      `${getBaseUrl()}/api/wallet-balance`,
+  `/api/wallet-balance`,
       5000
     )) as {
       success: boolean;
       data?: { balance?: string; symbol?: string };
       error?: string;
+  hint?: string;
     };
     return json;
   } catch {
-    return { success: false, error: 'Failed to load wallet balance.' } as const;
+    return {
+      success: false,
+      error: 'Failed to load wallet balance.',
+      hint: 'Set BSC_RPC_URL di env.',
+    } as const;
   }
 }
 
@@ -94,7 +89,15 @@ export default async function DonationPage() {
                 </div>
               ) : (
                 <div className="mt-1 text-xs text-gray-400">
-                  Tidak bisa ambil saldo otomatis. (Set <span className="font-mono">BSC_RPC_URL</span> di env)
+                  Tidak bisa ambil saldo otomatis.
+                  <div className="mt-1">
+                    <span className="text-gray-500">Error:</span>{' '}
+                    <span className="break-words font-mono">{balanceRes.error ?? '-'}</span>
+                  </div>
+                  <div className="mt-1">
+                    <span className="text-gray-500">Hint:</span>{' '}
+                    <span className="break-words">{balanceRes.hint ?? 'Set BSC_RPC_URL di env.'}</span>
+                  </div>
                 </div>
               )}
             </div>
