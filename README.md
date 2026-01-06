@@ -45,8 +45,8 @@ A professional cryptocurrency trading dashboard inspired by Bloomberg Terminal, 
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/quantumterm.git
-   cd quantumterm
+   git clone https://github.com/RAYDENFLY/quantumterminal.git
+   cd quantumterminal
    ```
 
 2. **Install dependencies**
@@ -105,7 +105,7 @@ npm start
 ## 📁 Project Structure
 
 ```
-quantumterm/
+quantumterminal/
 ├── app/
 │   ├── api/                 # API routes for data fetching
 │   ├── components/          # React components
