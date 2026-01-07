@@ -23,6 +23,8 @@ export default function Home() {
   const [activeModule, setActiveModule] = useState<string>('market');
   const [showTradingSignalForm, setShowTradingSignalForm] = useState(false);
   const [showMarketUpdateForm, setShowMarketUpdateForm] = useState(false);
+  const [uploadingMarketImage, setUploadingMarketImage] = useState(false);
+  const [marketUpdatePreviewError, setMarketUpdatePreviewError] = useState(false);
   
   // Notification modal state
   const [notification, setNotification] = useState({
@@ -48,11 +50,48 @@ export default function Home() {
   const [marketUpdateForm, setMarketUpdateForm] = useState({
     title: '',
     content: '',
-    imageUrl: ''
+    imageUrl: '',
+    author: ''
   });
+
+  const handleMarketUpdateImageUpload = async (file: File) => {
+    if (!file) return;
+    setUploadingMarketImage(true);
+    showNotification('loading', 'Uploading Image', 'Uploading image to ImgBB...');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+
+      const res = await fetch('/api/upload/imgbb', { method: 'POST', body: fd });
+      const json = (await res.json().catch(() => null)) as any;
+      if (!res.ok || !json?.success || !json?.data?.url) {
+        showNotification('error', 'Upload Failed', json?.error || 'Failed to upload image.');
+        return;
+      }
+
+      setMarketUpdateForm((prev) => ({ ...prev, imageUrl: String(json.data.url) }));
+  setMarketUpdatePreviewError(false);
+      showNotification('success', 'Upload Complete', 'Image uploaded successfully.');
+    } catch {
+      showNotification('error', 'Network Error', 'Failed to upload image. Please try again.');
+    } finally {
+      setUploadingMarketImage(false);
+    }
+  };
 
   // Fetch market data for trading signals
   const { data: marketData } = useSWR('/api/global-market', fetcher, { refreshInterval: 60000 });
+
+  // Fetch current user (for submissions author)
+  const { data: meData } = useSWR('/api/auth/me', fetcher);
+
+  // Auto-fill author from session (still editable in the form)
+  useEffect(() => {
+    const meUser = meData?.success ? meData.user : null;
+    const suggested = meUser?.username || meUser?.email;
+    if (!suggested) return;
+    setMarketUpdateForm((prev) => (prev.author ? prev : { ...prev, author: String(suggested) }));
+  }, [meData]);
 
   // Allow deep-linking to a specific module, e.g. /?module=news
   useEffect(() => {
@@ -169,12 +208,25 @@ export default function Home() {
     showNotification('loading', 'Submitting Update', 'Please wait while we process your market update...');
     
     try {
+      const meUser = meData?.success ? meData.user : null;
+      const author = marketUpdateForm.author?.trim() || meUser?.username || meUser?.email;
+      if (!author) {
+        showNotification('error', 'Submission Failed', 'Author / Name is required.');
+        return;
+      }
+
       const response = await fetch('/api/market-update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(marketUpdateForm),
+        body: JSON.stringify({
+          title: marketUpdateForm.title,
+          content: marketUpdateForm.content,
+          author,
+          type: 'analysis',
+          imageUrl: marketUpdateForm.imageUrl || undefined,
+        }),
       });
 
       if (response.ok) {
@@ -187,8 +239,10 @@ export default function Home() {
         setMarketUpdateForm({
           title: '',
           content: '',
-          imageUrl: ''
+          imageUrl: '',
+          author: ''
         });
+  setMarketUpdatePreviewError(false);
         mutateMarketUpdates();
       } else {
         const errorData = await response.json();
@@ -323,9 +377,9 @@ export default function Home() {
                   </button>
                 </div>
                 
-                {marketUpdatesData?.updates?.length > 0 ? (
+        {Array.isArray(marketUpdatesData?.data) && marketUpdatesData.data.length > 0 ? (
                   <div className="flex gap-4 overflow-x-auto pb-2">
-                    {marketUpdatesData.updates.map((update: any, index: number) => (
+          {marketUpdatesData.data.map((update: any, index: number) => (
                       <div key={index} className="bg-terminal-panel rounded-lg border border-terminal-border flex-shrink-0 w-80 overflow-hidden">
                         {/* Header */}
                         <div className="p-3 border-b border-terminal-border">
@@ -863,6 +917,19 @@ export default function Home() {
 
               <form onSubmit={handleMarketUpdateSubmit} className="space-y-4">
                 <div>
+                  <label className="block text-sm font-medium text-terminal-accent mb-2">Author / Name *</label>
+                  <input
+                    type="text"
+                    value={marketUpdateForm.author}
+                    onChange={(e) => setMarketUpdateForm({ ...marketUpdateForm, author: e.target.value })}
+                    className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent placeholder-gray-400"
+                    placeholder="Your name or handle"
+                    required
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Auto-filled from your account; you can edit it.</p>
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-terminal-accent mb-2">
                     Title *
                   </label>
@@ -877,16 +944,60 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-terminal-accent mb-2">
-                    Image URL (optional)
-                  </label>
-                  <input
-                    type="url"
-                    value={marketUpdateForm.imageUrl}
-                    onChange={(e) => setMarketUpdateForm({ ...marketUpdateForm, imageUrl: e.target.value })}
-                    className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent placeholder-gray-400"
-                    placeholder="https://example.com/chart.png"
-                  />
+                  <label className="block text-sm font-medium text-terminal-accent mb-2">Image (optional)</label>
+                  <div className="space-y-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="w-full text-xs text-gray-300"
+                      disabled={uploadingMarketImage}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        handleMarketUpdateImageUpload(file);
+                        // allow choosing the same file again
+                        e.currentTarget.value = '';
+                      }}
+                    />
+
+                    <input
+                      type="url"
+                      value={marketUpdateForm.imageUrl}
+                      onChange={(e) => {
+                        setMarketUpdateForm({ ...marketUpdateForm, imageUrl: e.target.value });
+                        setMarketUpdatePreviewError(false);
+                      }}
+                      className="w-full px-3 py-2 bg-terminal-panel border border-terminal-border rounded text-terminal-accent placeholder-gray-400"
+                      placeholder="Image URL (auto filled after upload, or paste URL here)"
+                    />
+
+                    {marketUpdateForm.imageUrl ? (
+                      <div className="rounded-md border border-terminal-border bg-terminal-panel p-2">
+                        <div className="text-xs text-gray-400 mb-2">Preview:</div>
+                        {marketUpdatePreviewError ? (
+                          <div className="text-xs text-gray-300">
+                            Preview failed to load. 
+                            <a
+                              href={marketUpdateForm.imageUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ml-1 text-terminal-accent hover:underline"
+                            >
+                              Open image in new tab →
+                            </a>
+                          </div>
+                        ) : (
+                          <img
+                            src={marketUpdateForm.imageUrl}
+                            alt="Market update preview"
+                            className="max-h-48 w-full object-contain rounded"
+                            onError={() => setMarketUpdatePreviewError(true)}
+                            onLoad={() => setMarketUpdatePreviewError(false)}
+                          />
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
 
                 <div>
