@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
+import {
   faChartLine, 
   faNewspaper, 
   faCubes, 
@@ -16,7 +16,8 @@ import {
   faList,
   faCodeBranch,
   faHandHoldingDollar,
-  faUsers
+  faUsers,
+  faUser
 } from '@fortawesome/free-solid-svg-icons';
 import useSWR from 'swr';
 import packageJson from '../package.json';
@@ -35,6 +36,8 @@ interface TopBarProps {
 export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -61,6 +64,31 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
   const { data: meData, mutate: mutateMe } = useSWR('/api/auth/me', fetcher);
 
   const user = meData?.success ? meData.user : null;
+
+  const myProfileHref = user?.username ? `/u/${encodeURIComponent(String(user.username).toLowerCase())}` : null;
+
+  useEffect(() => {
+    function onDocumentMouseDown(e: MouseEvent) {
+      if (!isUserMenuOpen) return;
+      const el = userMenuRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) {
+        setIsUserMenuOpen(false);
+      }
+    }
+
+    function onDocumentKeyDown(e: KeyboardEvent) {
+      if (!isUserMenuOpen) return;
+      if (e.key === 'Escape') setIsUserMenuOpen(false);
+    }
+
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.addEventListener('keydown', onDocumentKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.removeEventListener('keydown', onDocumentKeyDown);
+    };
+  }, [isUserMenuOpen]);
 
   async function onLogout() {
     try {
@@ -122,16 +150,47 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
           <div className="flex items-center space-x-2">
             {/* Auth (desktop) */}
             {user ? (
-              <div className="hidden md:flex items-center gap-2">
-                <span className="text-xs text-gray-400 max-w-[180px] truncate" title={user.email}>
-                  {user.email}
-                </span>
+              <div className="hidden md:flex items-center gap-2" ref={userMenuRef}>
                 <button
-                  onClick={onLogout}
+                  type="button"
+                  onClick={() => setIsUserMenuOpen((v) => !v)}
                   className="rounded-md border border-terminal-border px-3 py-2 text-xs text-gray-200 hover:text-terminal-accent hover:border-terminal-accent transition-colors"
+                  title={user.email}
+                  aria-haspopup="menu"
+                  aria-expanded={isUserMenuOpen}
                 >
-                  Logout
+                  <span className="max-w-[180px] truncate inline-block align-middle">{user.email}</span>
+                  <span className="ml-2 align-middle text-gray-500">▾</span>
                 </button>
+
+                {isUserMenuOpen ? (
+                  <div className="relative">
+                    <div className="absolute right-0 mt-3 w-52 rounded-md border border-terminal-border bg-terminal-panel shadow-xl z-50">
+                      {myProfileHref ? (
+                        <Link
+                          href={myProfileHref}
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 text-xs text-gray-200 hover:bg-terminal-bg hover:text-terminal-accent"
+                        >
+                          <FontAwesomeIcon icon={faUser} className="h-3 w-3" />
+                          <span>My profile</span>
+                        </Link>
+                      ) : (
+                        <div className="px-3 py-2 text-xs text-gray-500">Profile unavailable</div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          void onLogout();
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-terminal-bg hover:text-terminal-accent"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className="hidden md:flex items-center gap-2">
@@ -221,6 +280,16 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
                   <div className="px-3 py-2 text-xs text-gray-400 truncate" title={user.email}>
                     {user.email}
                   </div>
+                  {myProfileHref ? (
+                    <Link
+                      href={myProfileHref}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="w-full p-3 rounded-md text-gray-400 hover:text-terminal-accent transition-colors flex items-center space-x-3"
+                    >
+                      <FontAwesomeIcon icon={faUser} className="w-4 h-4" />
+                      <span>My profile</span>
+                    </Link>
+                  ) : null}
                   <button
                     onClick={() => {
                       onLogout();
