@@ -8,6 +8,35 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+function slugifyUsername(input: string) {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 24);
+}
+
+async function generateUniqueUsernameFromEmail(email: string) {
+  const local = email.split('@')[0] ?? 'user';
+  const base = slugifyUsername(local) || 'user';
+
+  // 1) Try base
+  const existsBase = await User.findOne({ username: base }).select({ _id: 1 }).lean();
+  if (!existsBase) return base;
+
+  // 2) Try base_2 ... base_999
+  for (let i = 2; i <= 999; i++) {
+    const candidate = `${base}_${i}`.slice(0, 24);
+    // eslint-disable-next-line no-await-in-loop
+    const exists = await User.findOne({ username: candidate }).select({ _id: 1 }).lean();
+    if (!exists) return candidate;
+  }
+
+  // 3) Fallback
+  return `user_${Date.now().toString(36)}`.slice(0, 24);
+}
+
 export async function POST(req: Request) {
   try {
     await connectDB();
@@ -38,8 +67,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
-    const user = await User.create({ email, passwordHash, role: 'user' });
+  const passwordHash = await bcrypt.hash(password, 12);
+  const username = await generateUniqueUsernameFromEmail(email);
+  const user = await User.create({ email, username, passwordHash, role: 'user' });
 
     // Auto-login after registration
     try {
