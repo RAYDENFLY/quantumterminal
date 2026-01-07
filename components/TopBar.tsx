@@ -23,6 +23,7 @@ import packageJson from '../package.json';
 import ChangelogModal from './ChangelogModal';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useHotkeys } from '@/hooks/useHotkeys';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -46,6 +47,16 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
     }
     router.push(`/?module=${encodeURIComponent(moduleId)}`);
   }
+
+  // Global hotkeys (work on /community and other routes too)
+  useHotkeys([
+    { key: 'Alt+1', action: () => goToModule('market') },
+    { key: 'Alt+2', action: () => goToModule('news') },
+    { key: 'Alt+3', action: () => goToModule('onchain') },
+    { key: 'Alt+4', action: () => goToModule('research') },
+    { key: 'Alt+5', action: () => goToModule('learning') },
+    { key: 'Alt+6', action: () => goToModule('submissions') },
+  ]);
 
   const { data: meData, mutate: mutateMe } = useSWR('/api/auth/me', fetcher);
 

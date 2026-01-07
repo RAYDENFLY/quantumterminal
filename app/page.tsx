@@ -207,16 +207,6 @@ export default function Home() {
     }
   };
 
-  // Hotkeys navigation
-  useHotkeys([
-    { key: 'Alt+1', action: () => setActiveModule('market') },
-    { key: 'Alt+2', action: () => setActiveModule('news') },
-    { key: 'Alt+3', action: () => setActiveModule('onchain') },
-    { key: 'Alt+4', action: () => setActiveModule('research') },
-    { key: 'Alt+5', action: () => setActiveModule('learning') },
-    { key: 'Alt+6', action: () => setActiveModule('submissions') },
-  ]);
-
   const renderActiveModule = () => {
     switch (activeModule) {
       case 'market':
