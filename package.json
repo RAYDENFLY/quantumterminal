@@ -4,7 +4,7 @@
   "description": "Quantum Terminal - Crypto Data & Research Platform Bergaya Bloomberg Terminal",
   "scripts": {
     "dev": "next dev",
-  "build": "next build --webpack",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint"
   },
@@ -32,6 +32,7 @@
     "mongoose": "^9.1.2",
     "next": "^16.0.7",
     "next-auth": "^4.24.13",
+    "nodemailer": "^7.0.12",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "recharts": "^3.5.1",
@@ -39,6 +40,7 @@
     "typescript": "^5.9.3"
   },
   "devDependencies": {
+    "@types/nodemailer": "^7.0.4",
     "autoprefixer": "^10.4.23",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17"

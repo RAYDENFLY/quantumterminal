@@ -2,44 +2,56 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-export default function LoginPage() {
+export default function ResetPasswordPage() {
   const router = useRouter();
+
   const [email, setEmail] = useState('');
+  const [token, setToken] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Client-only: safe parsing of query params
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const qEmail = sp.get('email') || '';
+      const qToken = sp.get('token') || '';
+      if (qEmail) setEmail(qEmail);
+      if (qToken) setToken(qToken);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setOk(null);
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, token, password }),
       });
 
-      const json = (await res.json()) as { success: boolean; error?: string };
-      if (!res.ok || !json.success) {
-        setError(json.error || 'Login failed.');
+      const json = (await res.json().catch(() => null)) as { success?: boolean; error?: string } | null;
+      if (!res.ok || !json?.success) {
+        setError(json?.error || 'Reset password gagal.');
         return;
       }
 
-      // Avoid useSearchParams() (requires Suspense in some Next versions)
-      let nextPath: string | null = null;
-      try {
-        nextPath = new URLSearchParams(window.location.search).get('next');
-      } catch {
-        nextPath = null;
-      }
-      router.push(nextPath || '/');
+      setOk('Password berhasil direset. Redirecting ke login…');
+      setTimeout(() => router.push('/login'), 800);
     } catch {
-      setError('Login failed.');
+      setError('Reset password gagal.');
     } finally {
       setLoading(false);
     }
@@ -48,10 +60,8 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-terminal-bg text-terminal-text">
       <div className="mx-auto max-w-md px-4 py-10">
-        <h1 className="text-2xl font-bold">Login</h1>
-        <p className="mt-2 text-sm text-gray-300">
-          Masuk untuk akses fitur komunitas (watchlist & diskusi).
-        </p>
+        <h1 className="text-2xl font-bold">Reset Password</h1>
+        <p className="mt-2 text-sm text-gray-300">Masukkan token reset dan password baru.</p>
 
         <form onSubmit={onSubmit} className="mt-6 rounded-xl border border-terminal-border bg-terminal-panel p-5">
           <label className="block text-sm text-gray-300">Email</label>
@@ -61,9 +71,22 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             className="mt-2 w-full rounded-md border border-terminal-border bg-terminal-bg px-3 py-2 text-sm text-terminal-text outline-none focus:border-terminal-accent"
             required
+            autoComplete="email"
           />
 
-          <label className="mt-4 block text-sm text-gray-300">Password</label>
+          <label className="mt-4 block text-sm text-gray-300">Token</label>
+          <input
+            type="text"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            className="mt-2 w-full rounded-md border border-terminal-border bg-terminal-bg px-3 py-2 text-sm text-terminal-text outline-none focus:border-terminal-accent"
+            required
+            spellCheck={false}
+            autoCapitalize="none"
+            autoCorrect="off"
+          />
+
+          <label className="mt-4 block text-sm text-gray-300">Password Baru</label>
           <div className="relative mt-2">
             <input
               type={showPassword ? 'text' : 'password'}
@@ -71,7 +94,8 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-md border border-terminal-border bg-terminal-bg px-3 py-2 pr-10 text-sm text-terminal-text outline-none focus:border-terminal-accent"
               required
-              autoComplete="current-password"
+              minLength={10}
+              autoComplete="new-password"
             />
             <button
               type="button"
@@ -87,31 +111,30 @@ export default function LoginPage() {
               )}
             </button>
           </div>
+          <div className="mt-2 text-xs text-gray-400">Minimal 10 karakter.</div>
 
           {error ? (
             <div className="mt-4 rounded-md border border-terminal-border bg-terminal-bg p-3 text-sm text-red-300">
               {error}
             </div>
           ) : null}
-
-          <div className="mt-3 text-right text-xs">
-            <Link href="/forgot-password" className="text-gray-400 hover:text-terminal-accent">
-              Lupa password?
-            </Link>
-          </div>
+          {ok ? (
+            <div className="mt-4 rounded-md border border-terminal-border bg-terminal-bg p-3 text-sm text-green-300">
+              {ok}
+            </div>
+          ) : null}
 
           <button
             type="submit"
             disabled={loading}
             className="mt-5 w-full rounded-md bg-terminal-accent px-4 py-2 text-sm font-semibold text-terminal-bg disabled:opacity-60"
           >
-            {loading ? 'Logging in…' : 'Login'}
+            {loading ? 'Resetting…' : 'Reset password'}
           </button>
 
           <div className="mt-4 text-xs text-gray-400">
-            Belum punya akun?{' '}
-            <Link href="/register" className="text-terminal-accent hover:underline">
-              Register
+            <Link href="/login" className="text-terminal-accent hover:underline">
+              ← Kembali ke Login
             </Link>
           </div>
         </form>

@@ -79,6 +79,25 @@ A professional cryptocurrency trading dashboard inspired by Bloomberg Terminal, 
    SESSION_SECRET=replace-with-a-long-random-string
    ```
 
+   **Password reset email (Brevo SMTP)**
+
+   Untuk fitur **Lupa password**, kamu bisa pakai Brevo SMTP (gratis) supaya link reset dikirim via email.
+   Kalau variabel di bawah belum di-set, app akan **log** reset link ke server console.
+
+   ```env
+   # Needed so reset links become absolute URLs in production
+   NEXT_PUBLIC_SITE_URL=https://your-domain.com
+
+   # SMTP sender
+   MAIL_FROM="Quantum Terminal <no-reply@your-domain.com>"
+
+   # Brevo SMTP
+   SMTP_HOST=smtp-relay.brevo.com
+   SMTP_PORT=587
+   SMTP_USER=your-brevo-smtp-login
+   SMTP_PASS=your-brevo-smtp-key
+   ```
+
 4. **Run the development server**
    ```bash
    npm run dev
