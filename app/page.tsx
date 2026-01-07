@@ -54,6 +54,20 @@ export default function Home() {
   // Fetch market data for trading signals
   const { data: marketData } = useSWR('/api/global-market', fetcher, { refreshInterval: 60000 });
 
+  // Allow deep-linking to a specific module, e.g. /?module=news
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    const mod = sp.get('module');
+    if (!mod) return;
+    const allowed = new Set(['market', 'news', 'onchain', 'research', 'learning', 'submissions']);
+    if (allowed.has(mod) && mod !== activeModule) {
+      setActiveModule(mod);
+    }
+    // Only run on initial load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Fetch trading signals from database
   const { data: tradingSignalsData, mutate: mutateTradingSignals } = useSWR('/api/trading-signals', fetcher, { refreshInterval: 60000 });
 

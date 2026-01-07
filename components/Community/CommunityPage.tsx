@@ -8,6 +8,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
 import CommunityDisclaimer from './CommunityDisclaimer';
 import { COMMUNITY_CATEGORIES, type CommunityCategoryId } from './CommunityCategories';
+import CoinTagChips from './CoinTagChips';
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -125,19 +126,7 @@ export default function CommunityPage() {
                       <span>{p.createdAt ? new Date(p.createdAt).toLocaleString() : ''}</span>
                     </div>
                     <div className="mt-1 text-base font-semibold text-terminal-text truncate">{p.title}</div>
-                    {Array.isArray(p.coinTags) && p.coinTags.length ? (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {p.coinTags.map((t: any) => (
-                          <span
-                            key={`${t.coinId}`}
-                            className="rounded-full border border-terminal-border bg-terminal-bg px-2 py-0.5 text-xs text-gray-300"
-                            title={t.name}
-                          >
-                            {String(t.symbol || '').toUpperCase()}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
+                    {Array.isArray(p.coinTags) && p.coinTags.length ? <CoinTagChips tags={p.coinTags} /> : null}
                   </div>
                   <div className="shrink-0 text-right text-xs text-gray-400">
                     <div>💬 {p.commentsCount ?? 0}</div>

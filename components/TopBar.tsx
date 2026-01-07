@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -21,6 +22,7 @@ import useSWR from 'swr';
 import packageJson from '../package.json';
 import ChangelogModal from './ChangelogModal';
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -32,6 +34,18 @@ interface TopBarProps {
 export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
+
+  const router = useRouter();
+  const pathname = usePathname();
+
+  function goToModule(moduleId: string) {
+    // Home page is a single-page module switcher; other routes should navigate back with a module hint.
+    if (pathname === '/' || pathname === '' || pathname == null) {
+      setActiveModule(moduleId);
+      return;
+    }
+    router.push(`/?module=${encodeURIComponent(moduleId)}`);
+  }
 
   const { data: meData, mutate: mutateMe } = useSWR('/api/auth/me', fetcher);
 
@@ -78,7 +92,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
             {modules.map((module) => (
               <button
                 key={module.id}
-                onClick={() => setActiveModule(module.id)}
+                onClick={() => goToModule(module.id)}
                 className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${
                   activeModule === module.id
                     ? 'bg-terminal-accent text-terminal-bg'
@@ -174,7 +188,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
                 <button
                   key={module.id}
                   onClick={() => {
-                    setActiveModule(module.id);
+                    goToModule(module.id);
                     setIsMobileMenuOpen(false);
                   }}
                   className={`px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 flex items-center space-x-3 ${

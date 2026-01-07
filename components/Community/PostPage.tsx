@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import ReportModal, { type ReportTargetType } from './ReportModal';
+import CoinTagChips from './CoinTagChips';
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -154,19 +155,7 @@ export default function PostPage({ slug }: { slug: string }) {
 
             {reportOk ? <div className="mt-3 text-xs text-green-300">{reportOk}</div> : null}
 
-            {Array.isArray(post.coinTags) && post.coinTags.length ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {post.coinTags.map((t: any) => (
-                  <span
-                    key={t.coinId}
-                    className="rounded-full border border-terminal-border bg-terminal-bg px-2 py-0.5 text-xs text-gray-300"
-                    title={t.name}
-                  >
-                    {String(t.symbol || '').toUpperCase()}
-                  </span>
-                ))}
-              </div>
-            ) : null}
+            {Array.isArray(post.coinTags) && post.coinTags.length ? <CoinTagChips tags={post.coinTags} /> : null}
 
             <div className="prose prose-invert mt-4 max-w-none whitespace-pre-wrap text-sm text-gray-200">
               {post.body}
