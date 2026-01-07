@@ -32,6 +32,18 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
 
+  const { data: meData, mutate: mutateMe } = useSWR('/api/auth/me', fetcher);
+
+  const user = meData?.success ? meData.user : null;
+
+  async function onLogout() {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      mutateMe();
+    }
+  }
+
   // Fetch real news data
   const { data: newsData } = useSWR('/api/news', fetcher, { refreshInterval: 300000 }); // 5 minutes
 
@@ -82,6 +94,36 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
 
           {/* Mobile Menu Button & Alerts */}
           <div className="flex items-center space-x-2">
+            {/* Auth (desktop) */}
+            {user ? (
+              <div className="hidden md:flex items-center gap-2">
+                <span className="text-xs text-gray-400 max-w-[180px] truncate" title={user.email}>
+                  {user.email}
+                </span>
+                <button
+                  onClick={onLogout}
+                  className="rounded-md border border-terminal-border px-3 py-2 text-xs text-gray-200 hover:text-terminal-accent hover:border-terminal-accent transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <div className="hidden md:flex items-center gap-2">
+                <Link
+                  href="/login"
+                  className="rounded-md border border-terminal-border px-3 py-2 text-xs text-gray-200 hover:text-terminal-accent hover:border-terminal-accent transition-colors"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/register"
+                  className="rounded-md bg-terminal-accent px-3 py-2 text-xs font-semibold text-terminal-bg"
+                >
+                  Register
+                </Link>
+              </div>
+            )}
+
             <Link
               href="/donasi"
               className="hidden md:inline-flex items-center space-x-2 p-2 rounded-md text-gray-400 hover:text-terminal-accent transition-colors"
@@ -138,6 +180,41 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
               ))}
             </nav>
             <div className="mt-4 pt-4 border-t border-terminal-border">
+              {/* Auth (mobile) */}
+              {user ? (
+                <div className="mb-2">
+                  <div className="px-3 py-2 text-xs text-gray-400 truncate" title={user.email}>
+                    {user.email}
+                  </div>
+                  <button
+                    onClick={() => {
+                      onLogout();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full p-3 rounded-md text-gray-400 hover:text-terminal-accent transition-colors flex items-center space-x-3"
+                  >
+                    <span>Logout</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="mb-2">
+                  <Link
+                    href="/login"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="w-full p-3 rounded-md text-gray-400 hover:text-terminal-accent transition-colors flex items-center space-x-3"
+                  >
+                    <span>Login</span>
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="w-full p-3 rounded-md text-terminal-bg bg-terminal-accent transition-colors flex items-center justify-center"
+                  >
+                    <span className="text-sm font-semibold">Register</span>
+                  </Link>
+                </div>
+              )}
+
               <Link
                 href="/donasi"
                 onClick={() => setIsMobileMenuOpen(false)}
