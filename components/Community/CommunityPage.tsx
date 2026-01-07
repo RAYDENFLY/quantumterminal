@@ -3,6 +3,9 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import useSWR from 'swr';
+import TopBar from '@/components/TopBar';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
 import CommunityDisclaimer from './CommunityDisclaimer';
 import { COMMUNITY_CATEGORIES, type CommunityCategoryId } from './CommunityCategories';
 
@@ -13,6 +16,7 @@ function categoryLabel(id: string) {
 }
 
 export default function CommunityPage() {
+  const [activeModule, setActiveModule] = useState('community');
   const [category, setCategory] = useState<CommunityCategoryId | 'all'>('all');
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<'newest' | 'top_24h' | 'top_all'>('newest');
@@ -31,7 +35,11 @@ export default function CommunityPage() {
   const posts = Array.isArray(data?.posts) ? data.posts : [];
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 text-terminal-text">
+    <div className="min-h-screen flex flex-col">
+      <TopBar activeModule={activeModule} setActiveModule={setActiveModule} />
+
+      <main className="flex-1">
+        <div className="mx-auto max-w-5xl px-4 py-8 text-terminal-text">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Community</h1>
@@ -141,6 +149,28 @@ export default function CommunityPage() {
           </div>
         )}
       </div>
+        </div>
+      </main>
+
+      <footer className="border-t border-terminal-border p-4 text-center text-xs text-gray-500">
+        <p>⚠️ DISCLAIMER: For informational and educational purposes only. Not financial advice.</p>
+        <p className="mt-1">
+          Data provided by CoinGecko, CoinDesk, Alternative.me, Mempool.space, Blockchain.com, and DeFi Llama
+        </p>
+        <div className="mt-2 flex items-center justify-center space-x-2">
+          <a
+            href="https://github.com/RAYDENFLY/quantumterminal"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center space-x-2 text-gray-400 hover:text-terminal-accent transition-colors"
+          >
+            <FontAwesomeIcon icon={faExternalLinkAlt} className="w-4 h-4" />
+            <span>GitHub</span>
+          </a>
+          <span className="text-gray-600">•</span>
+          <p className="font-bold text-terminal-accent">Quantum Terminal</p>
+        </div>
+      </footer>
     </div>
   );
 }
