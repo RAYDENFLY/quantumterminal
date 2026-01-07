@@ -9,11 +9,17 @@ import CoinTagChips from './CoinTagChips';
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export default function PostPage({ slug }: { slug: string }) {
+  const { data: meData } = useSWR('/api/auth/me', fetcher);
   const { data: postData, error: postErr, mutate: mutatePost } = useSWR(`/api/community/posts/${slug}`, fetcher);
   const { data: voteData, mutate: mutateVote } = useSWR(`/api/community/posts/${slug}/vote`, fetcher);
 
   const post = postData?.post ?? null;
   const voted = Boolean(voteData?.voted);
+
+  const user = meData?.success ? meData.user : null;
+  const isOwner = Boolean(
+    user?.email && post?.authorEmail && String(user.email).toLowerCase() === String(post.authorEmail).toLowerCase()
+  );
 
   const postId = post?._id ? String(post._id) : post?.id ? String(post.id) : post?._id;
 
@@ -124,6 +130,17 @@ export default function PostPage({ slug }: { slug: string }) {
               <span>{post.createdAt ? new Date(post.createdAt).toLocaleString() : ''}</span>
             </div>
             <h1 className="mt-2 text-xl font-bold">{post.title}</h1>
+
+            {isOwner || user?.role === 'admin' ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link
+                  href={`/community/${slug}/edit`}
+                  className="rounded-md border border-terminal-border px-3 py-2 text-xs text-gray-200 hover:border-terminal-accent hover:text-terminal-accent"
+                >
+                  Edit
+                </Link>
+              </div>
+            ) : null}
 
             <div className="mt-3 flex items-center justify-between gap-3">
               <div className="text-sm text-gray-400">
