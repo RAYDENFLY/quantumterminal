@@ -145,15 +145,26 @@ export default function ResearchPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {/* Real research data */}
-        {Array.isArray(researchData?.data) && researchData.data.length > 0 ? (
-          researchData.data.map((item: any, idx: number) => {
+        {researchError ? (
+          <div className="col-span-full text-center py-8">
+            <div className="text-gray-400 mb-2">⚠️</div>
+            <p className="text-gray-400">Failed to load research.</p>
+            <p className="text-sm text-gray-500 mt-1">Please refresh and try again.</p>
+          </div>
+        ) : !researchData ? (
+          <div className="col-span-full text-center py-8">
+            <div className="text-gray-400 mb-2">⏳</div>
+            <p className="text-gray-400">Loading research…</p>
+          </div>
+        ) : Array.isArray(researchData?.research) && researchData.research.length > 0 ? (
+          researchData.research.map((item: any, idx: number) => {
             const title = item.title || item.link || `Research #${idx + 1}`;
             const description = item.description || item.message || '';
             const date = item.date || item.createdAt || '';
             const category = item.category || '';
 
             return (
-              <div key={item.messageId || idx} className="bg-terminal-bg rounded-lg border border-terminal-border overflow-hidden">
+              <div key={item._id || item.messageId || idx} className="bg-terminal-bg rounded-lg border border-terminal-border overflow-hidden">
                 <div className="p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
