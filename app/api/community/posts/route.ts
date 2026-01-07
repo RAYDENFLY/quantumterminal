@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth/session';
 import { rateLimit } from '@/lib/rateLimit';
 import { uniqueSlug } from '@/lib/slug';
 import CommunityPost, { COMMUNITY_CATEGORIES, type CommunityCategory } from '@/models/CommunityPost';
+import User from '@/models/User';
 
 function randomSuffix() {
   return crypto.randomBytes(4).toString('hex');
@@ -72,6 +73,7 @@ export async function GET(req: Request) {
       slug: 1,
       category: 1,
       coinTags: 1,
+      authorId: 1,
       authorEmail: 1,
       commentsCount: 1,
       upvotesCount: 1,
@@ -79,6 +81,17 @@ export async function GET(req: Request) {
       lastCommentAt: 1,
     })
     .lean();
+
+  // Attach authorUsername for profile links
+  const authorIds = Array.from(new Set(posts.map((p: any) => String(p.authorId)).filter(Boolean)));
+  const users = await User.find({ _id: { $in: authorIds } })
+    .select({ _id: 1, username: 1 })
+    .lean();
+  const userMap = new Map(users.map((u: any) => [String(u._id), u.username]));
+  const postsWithAuthor = posts.map((p: any) => ({
+    ...p,
+    authorUsername: userMap.get(String(p.authorId)) ?? null,
+  }));
 
   const nextCursor = posts.length
     ? (() => {
@@ -90,7 +103,7 @@ export async function GET(req: Request) {
       })()
     : null;
 
-  return NextResponse.json({ success: true, posts, nextCursor });
+  return NextResponse.json({ success: true, posts: postsWithAuthor, nextCursor });
 }
 
 export async function POST(req: Request) {

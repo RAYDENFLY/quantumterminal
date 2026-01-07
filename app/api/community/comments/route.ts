@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/auth/session';
 import { rateLimit } from '@/lib/rateLimit';
 import CommunityPost from '@/models/CommunityPost';
 import CommunityComment from '@/models/CommunityComment';
+import User from '@/models/User';
 
 export async function GET(req: Request) {
   await connectDB();
@@ -18,10 +19,21 @@ export async function GET(req: Request) {
   const comments = await CommunityComment.find({ postId, status: 'active' })
     .sort({ createdAt: 1 })
     .limit(limit)
-    .select({ postId: 1, parentCommentId: 1, authorEmail: 1, body: 1, createdAt: 1 })
+    .select({ postId: 1, parentCommentId: 1, authorId: 1, authorEmail: 1, body: 1, createdAt: 1 })
     .lean();
 
-  return NextResponse.json({ success: true, comments });
+  const authorIds = Array.from(new Set(comments.map((c: any) => String(c.authorId)).filter(Boolean)));
+  const users = await User.find({ _id: { $in: authorIds } })
+    .select({ _id: 1, username: 1 })
+    .lean();
+  const userMap = new Map(users.map((u: any) => [String(u._id), u.username]));
+
+  const commentsWithAuthor = comments.map((c: any) => ({
+    ...c,
+    authorUsername: userMap.get(String(c.authorId)) ?? null,
+  }));
+
+  return NextResponse.json({ success: true, comments: commentsWithAuthor });
 }
 
 export async function POST(req: Request) {

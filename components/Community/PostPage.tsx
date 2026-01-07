@@ -125,7 +125,16 @@ export default function PostPage({ slug }: { slug: string }) {
             <div className="text-xs text-gray-400">
               <span className="text-terminal-accent">{post.category}</span>
               <span className="mx-2">•</span>
-              <span>{post.authorEmail}</span>
+              {post.authorUsername ? (
+                <Link
+                  href={`/u/${encodeURIComponent(String(post.authorUsername).toLowerCase())}`}
+                  className="hover:text-terminal-accent"
+                >
+                  {post.authorUsername}
+                </Link>
+              ) : (
+                <span>{post.authorEmail}</span>
+              )}
               <span className="mx-2">•</span>
               <span>{post.createdAt ? new Date(post.createdAt).toLocaleString() : ''}</span>
             </div>
@@ -194,7 +203,16 @@ export default function PostPage({ slug }: { slug: string }) {
                   <div key={c._id} className="rounded-md border border-terminal-border bg-terminal-bg p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="text-xs text-gray-400">
-                        <span>{c.authorEmail}</span>
+                        {c.authorUsername ? (
+                          <Link
+                            href={`/u/${encodeURIComponent(String(c.authorUsername).toLowerCase())}`}
+                            className="hover:text-terminal-accent"
+                          >
+                            {c.authorUsername}
+                          </Link>
+                        ) : (
+                          <span>{c.authorEmail}</span>
+                        )}
                         <span className="mx-2">•</span>
                         <span>{c.createdAt ? new Date(c.createdAt).toLocaleString() : ''}</span>
                       </div>

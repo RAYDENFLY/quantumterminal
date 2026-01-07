@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import connectDB from '@/lib/mongodb';
 import CommunityPost, { COMMUNITY_CATEGORIES, type CommunityCategory } from '@/models/CommunityPost';
 import { getCurrentUser } from '@/lib/auth/session';
+import User from '@/models/User';
 
 export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }> }) {
   await connectDB();
@@ -15,6 +16,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }
       slug: 1,
       category: 1,
       coinTags: 1,
+      authorId: 1,
       authorEmail: 1,
       commentsCount: 1,
       upvotesCount: 1,
@@ -27,7 +29,13 @@ export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }
     return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
   }
 
-  return NextResponse.json({ success: true, post });
+  const authorUsername = post?.authorId
+    ? (
+        await User.findById(post.authorId).select({ username: 1 }).lean()
+      )?.username ?? null
+    : null;
+
+  return NextResponse.json({ success: true, post: { ...post, authorUsername } });
 }
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ slug: string }> }) {
