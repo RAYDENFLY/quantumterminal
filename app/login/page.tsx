@@ -29,7 +29,14 @@ export default function LoginPage() {
         return;
       }
 
-      router.push('/');
+      // Avoid useSearchParams() (requires Suspense in some Next versions)
+      let nextPath: string | null = null;
+      try {
+        nextPath = new URLSearchParams(window.location.search).get('next');
+      } catch {
+        nextPath = null;
+      }
+      router.push(nextPath || '/');
     } catch {
       setError('Login failed.');
     } finally {

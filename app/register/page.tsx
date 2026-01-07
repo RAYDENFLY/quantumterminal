@@ -8,6 +8,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
@@ -32,7 +33,13 @@ export default function RegisterPage() {
       }
 
       setOk('Account created. Redirecting to home…');
-      setTimeout(() => router.push('/'), 500);
+      let nextPath: string | null = null;
+      try {
+        nextPath = new URLSearchParams(window.location.search).get('next');
+      } catch {
+        nextPath = null;
+      }
+      setTimeout(() => router.push(nextPath || '/'), 500);
     } catch {
       setError('Register failed.');
     } finally {
@@ -59,14 +66,30 @@ export default function RegisterPage() {
           />
 
           <label className="mt-4 block text-sm text-gray-300">Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-2 w-full rounded-md border border-terminal-border bg-terminal-bg px-3 py-2 text-sm text-terminal-text outline-none focus:border-terminal-accent"
-            required
-            minLength={10}
-          />
+          <div className="relative mt-2">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-md border border-terminal-border bg-terminal-bg px-3 py-2 pr-10 text-sm text-terminal-text outline-none focus:border-terminal-accent"
+              required
+              minLength={10}
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              title={showPassword ? 'Hide password' : 'Show password'}
+              className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-terminal-accent"
+            >
+              {showPassword ? (
+                <span className="text-base leading-none">🙈</span>
+              ) : (
+                <span className="text-base leading-none">👁️</span>
+              )}
+            </button>
+          </div>
           <div className="mt-2 text-xs text-gray-400">Minimal 10 karakter.</div>
 
           {error ? (
