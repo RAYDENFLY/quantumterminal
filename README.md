@@ -70,6 +70,15 @@ A professional cryptocurrency trading dashboard inspired by Bloomberg Terminal, 
    DEBANK_API_KEY=your_debank_key
    ```
 
+   **User Authentication (community accounts)**
+
+   If you enable the new auth endpoints (`/api/auth/register`, `/api/auth/login`, `/api/auth/logout`), set this required secret:
+
+   ```env
+   # Required: used to issue HTTP-only session cookies
+   SESSION_SECRET=replace-with-a-long-random-string
+   ```
+
 4. **Run the development server**
    ```bash
    npm run dev
