@@ -120,17 +120,9 @@ export default function CommunityPage() {
                     <div className="text-sm text-gray-400">
                       <span className="text-terminal-accent">{categoryLabel(p.category)}</span>
                       <span className="mx-2">•</span>
-                      {p.authorUsername ? (
-                        <Link
-                          href={`/u/${encodeURIComponent(String(p.authorUsername).toLowerCase())}`}
-                          className="hover:text-terminal-accent"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {p.authorUsername}
-                        </Link>
-                      ) : (
-                        <span>{p.authorEmail}</span>
-                      )}
+                      <span className="hover:text-terminal-accent">
+                        {p.authorUsername ? p.authorUsername : p.authorEmail}
+                      </span>
                       <span className="mx-2">•</span>
                       <span>{p.createdAt ? new Date(p.createdAt).toLocaleString() : ''}</span>
                     </div>
