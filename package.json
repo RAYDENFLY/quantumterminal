@@ -1,12 +1,12 @@
 {
   "name": "quantumterm",
-  "version": "1.0.1",
+  "version": "1.1.1",
   "description": "Quantum Terminal - Crypto Data & Research Platform Bergaya Bloomberg Terminal",
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
-    "start": "next start",
-    "lint": "next lint"
+  "start": "next start",
+  "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "keywords": [
     "crypto",

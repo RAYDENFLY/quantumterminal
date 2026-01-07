@@ -7,6 +7,7 @@ import {
   faGraduationCap, 
   faUniversity, 
   faNewspaper,
+  faChartLine,
   faCheck,
   faTimes,
   faClock,
@@ -99,6 +100,7 @@ export default function SubmissionsPage() {
       case 'learning': return faGraduationCap;
       case 'academy': return faUniversity;
       case 'market-update': return faNewspaper;
+  case 'trading-signal': return faChartLine;
       default: return faFileAlt;
     }
   };
@@ -109,6 +111,7 @@ export default function SubmissionsPage() {
       case 'learning': return 'text-green-400 bg-green-500/20';
       case 'academy': return 'text-purple-400 bg-purple-500/20';
       case 'market-update': return 'text-orange-400 bg-orange-500/20';
+  case 'trading-signal': return 'text-cyan-300 bg-cyan-500/20';
       default: return 'text-gray-400 bg-gray-500/20';
     }
   };
@@ -177,6 +180,7 @@ export default function SubmissionsPage() {
               <option value="learning">Learning</option>
               <option value="academy">Academy</option>
               <option value="market-update">Market Updates</option>
+              <option value="trading-signal">Trading Signals</option>
             </select>
           </div>
           <div className="flex items-end">

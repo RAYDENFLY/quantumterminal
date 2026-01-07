@@ -4,6 +4,7 @@ import Research from '@/models/Research';
 import Learning from '@/models/Learning';
 import Academy from '@/models/Academy';
 import MarketUpdate from '@/models/MarketUpdate';
+import TradingSignal from '@/models/TradingSignal';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,6 +77,14 @@ export async function GET(request: NextRequest) {
             .limit(limit)
             .lean();
           break;
+        case 'trading-signal':
+          total = await TradingSignal.countDocuments(baseQuery);
+          items = await TradingSignal.find(baseQuery)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+          break;
       }
 
       allSubmissions = items.map(item => ({
@@ -99,11 +108,12 @@ export async function GET(request: NextRequest) {
 
     } else {
       // Fetch from all collections
-      const [researchItems, learningItems, academyItems, marketUpdateItems] = await Promise.all([
+      const [researchItems, learningItems, academyItems, marketUpdateItems, tradingSignalItems] = await Promise.all([
         Research.find(baseQuery).sort({ createdAt: -1 }).lean(),
         Learning.find(baseQuery).sort({ createdAt: -1 }).lean(),
         Academy.find(baseQuery).sort({ createdAt: -1 }).lean(),
-        MarketUpdate.find(baseQuery).sort({ createdAt: -1 }).lean()
+        MarketUpdate.find(baseQuery).sort({ createdAt: -1 }).lean(),
+        TradingSignal.find(baseQuery).sort({ createdAt: -1 }).lean()
       ]);
 
       // Combine all submissions with type labels
@@ -111,7 +121,8 @@ export async function GET(request: NextRequest) {
         ...researchItems.map(item => ({ ...item, type: 'research' })),
         ...learningItems.map(item => ({ ...item, type: 'learning' })),
         ...academyItems.map(item => ({ ...item, type: 'academy' })),
-        ...marketUpdateItems.map(item => ({ ...item, type: 'market-update' }))
+  ...marketUpdateItems.map(item => ({ ...item, type: 'market-update' })),
+  ...tradingSignalItems.map(item => ({ ...item, type: 'trading-signal' }))
       ];
 
       // Sort by creation date (newest first)

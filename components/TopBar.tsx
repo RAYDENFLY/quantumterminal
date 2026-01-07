@@ -14,7 +14,8 @@ import {
   faTimes,
   faList,
   faCodeBranch,
-  faHandHoldingDollar
+  faHandHoldingDollar,
+  faUsers
 } from '@fortawesome/free-solid-svg-icons';
 import useSWR from 'swr';
 import packageJson from '../package.json';
@@ -125,6 +126,15 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
             )}
 
             <Link
+              href="/community"
+              className="hidden md:inline-flex items-center space-x-2 p-2 rounded-md text-gray-400 hover:text-terminal-accent transition-colors"
+              title="Community"
+            >
+              <FontAwesomeIcon icon={faUsers} className="w-5 h-5" />
+              <span className="hidden lg:inline text-sm">Community</span>
+            </Link>
+
+            <Link
               href="/donasi"
               className="hidden md:inline-flex items-center space-x-2 p-2 rounded-md text-gray-400 hover:text-terminal-accent transition-colors"
               title="Donasi"
@@ -214,6 +224,15 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
                   </Link>
                 </div>
               )}
+
+              <Link
+                href="/community"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="w-full p-3 rounded-md text-gray-400 hover:text-terminal-accent transition-colors flex items-center space-x-3"
+              >
+                <FontAwesomeIcon icon={faUsers} className="w-4 h-4" />
+                <span>Community</span>
+              </Link>
 
               <Link
                 href="/donasi"

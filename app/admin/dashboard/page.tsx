@@ -52,6 +52,21 @@ interface SubmissionItem {
   type: string;
   priority?: string;
   createdAt: string;
+
+  // Trading signal fields (optional)
+  asset?: string;
+  signal?: 'LONG' | 'SHORT';
+  tradingStyle?: string;
+  conviction?: number;
+  signalStatus?: string;
+  entry?: string;
+  stopLoss?: string;
+  takeProfit1?: string;
+  takeProfit2?: string;
+  takeProfit3?: string;
+  reasoning?: string;
+  link?: string;
+  tags?: string[];
 }
 
 export default function AdminDashboard() {
@@ -249,7 +264,7 @@ export default function AdminDashboard() {
       case 'learning': return faGraduationCap;
       case 'academy': return faUniversity;
       case 'market-update': return faNewspaper;
-      case 'trading-signals': return faChartLine;
+  case 'trading-signal': return faChartLine;
       default: return faFileAlt;
     }
   };
@@ -271,6 +286,85 @@ export default function AdminDashboard() {
       case 'low': return 'text-green-400';
       default: return 'text-gray-400';
     }
+  };
+
+  const formatTypeLabel = (type: string) => {
+    switch (type) {
+      case 'market-update':
+        return 'market-update';
+      case 'trading-signal':
+        return 'trading-signal';
+      default:
+        return type;
+    }
+  };
+
+  const getItemSummary = (item: SubmissionItem) => {
+    return item.description || item.content || item.deskripsi || '';
+  };
+
+  const renderTradingSignalDetails = (item: SubmissionItem) => {
+    return (
+      <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-gray-300 md:grid-cols-2">
+        <div className="rounded border border-terminal-border bg-terminal-panel/40 px-3 py-2">
+          <div className="text-xs text-gray-400">Setup</div>
+          <div className="mt-1">
+            <span className="font-semibold text-gray-100">{item.signal || '-'} {item.asset || ''}</span>
+            <span className="ml-2 text-xs text-gray-400">• {item.tradingStyle || '-'}</span>
+            {typeof item.conviction === 'number' ? (
+              <span className="ml-2 text-xs text-gray-400">• conviction {item.conviction}/10</span>
+            ) : null}
+          </div>
+          {item.signalStatus ? <div className="mt-1 text-xs text-gray-400">status: {item.signalStatus}</div> : null}
+        </div>
+
+        <div className="rounded border border-terminal-border bg-terminal-panel/40 px-3 py-2">
+          <div className="text-xs text-gray-400">Levels</div>
+          <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+            <div>
+              <span className="text-gray-400">Entry:</span> <span className="text-gray-100">{item.entry || '-'}</span>
+            </div>
+            <div>
+              <span className="text-gray-400">SL:</span> <span className="text-gray-100">{item.stopLoss || '-'}</span>
+            </div>
+            <div>
+              <span className="text-gray-400">TP1:</span> <span className="text-gray-100">{item.takeProfit1 || '-'}</span>
+            </div>
+            <div>
+              <span className="text-gray-400">TP2:</span> <span className="text-gray-100">{item.takeProfit2 || '-'}</span>
+            </div>
+            <div>
+              <span className="text-gray-400">TP3:</span> <span className="text-gray-100">{item.takeProfit3 || '-'}</span>
+            </div>
+          </div>
+        </div>
+
+        {item.reasoning ? (
+          <div className="md:col-span-2 rounded border border-terminal-border bg-terminal-panel/40 px-3 py-2">
+            <div className="text-xs text-gray-400">Reasoning</div>
+            <div className="mt-1 whitespace-pre-wrap text-sm text-gray-200">{item.reasoning}</div>
+          </div>
+        ) : null}
+
+        {Array.isArray(item.tags) && item.tags.length > 0 ? (
+          <div className="md:col-span-2 flex flex-wrap gap-2">
+            {item.tags.map((t) => (
+              <span key={t} className="rounded-full border border-terminal-border bg-terminal-panel/40 px-2 py-1 text-xs text-gray-300">
+                #{t}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        {item.link ? (
+          <div className="md:col-span-2 text-xs">
+            <a href={item.link} target="_blank" rel="noreferrer" className="text-terminal-accent hover:underline">
+              {item.link}
+            </a>
+          </div>
+        ) : null}
+      </div>
+    );
   };
 
   if (loading && !stats) {
@@ -361,7 +455,7 @@ export default function AdminDashboard() {
                 <option value="learning">Learning</option>
                 <option value="academy">Academy</option>
                 <option value="market-update">Market Updates</option>
-                <option value="trading-signals">Trading Signals</option>
+                <option value="trading-signal">Trading Signals</option>
               </select>
             </div>
             <div>
@@ -407,7 +501,7 @@ export default function AdminDashboard() {
                             className="w-4 h-4 text-terminal-accent" 
                           />
                           <span className="text-sm font-medium text-terminal-accent uppercase">
-                            {item.type}
+                            {formatTypeLabel(item.type)}
                           </span>
                           <span className={`text-sm font-medium ${getStatusColor(item.status)}`}>
                             {item.status}
@@ -421,12 +515,18 @@ export default function AdminDashboard() {
                         <h3 className="text-lg font-semibold text-terminal-accent mb-1">
                           {item.title}
                         </h3>
-                        <p className="text-sm text-gray-400 mb-2">
-                          {item.description || item.content || item.deskripsi || 'No description'}
-                        </p>
+                        {getItemSummary(item) ? (
+                          <p className="text-sm text-gray-400 mb-2 whitespace-pre-wrap">
+                            {getItemSummary(item)}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-gray-500 mb-2">No description</p>
+                        )}
                         <div className="text-xs text-gray-500">
                           By {item.author} • {new Date(item.createdAt).toLocaleDateString()}
                         </div>
+
+                        {item.type === 'trading-signal' ? renderTradingSignalDetails(item) : null}
                       </div>
 
                       <div className="flex items-center space-x-2 ml-4">
