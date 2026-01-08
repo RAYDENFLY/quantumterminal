@@ -9,6 +9,16 @@ import { usePathname } from 'next/navigation';
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
+function proxiedImageSrc(url: string) {
+  const raw = String(url || '');
+  if (!raw) return '';
+  // Only proxy ImgBB images; leave other sources untouched.
+  if (/^https:\/\/(?:i\.ibb\.co|ibb\.co|image\.ibb\.co)\//i.test(raw)) {
+    return `/api/image-proxy?url=${encodeURIComponent(raw)}`;
+  }
+  return raw;
+}
+
 export default function MarketUpdateDetailPage() {
   const pathname = usePathname();
   const id = useMemo(() => {
@@ -21,7 +31,7 @@ export default function MarketUpdateDetailPage() {
   const update = data?.success ? data.data : null;
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
-  const zoomedSrc = useMemo(() => (update?.imageUrl ? String(update.imageUrl) : ''), [update?.imageUrl]);
+  const zoomedSrc = useMemo(() => (update?.imageUrl ? proxiedImageSrc(String(update.imageUrl)) : ''), [update?.imageUrl]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -65,7 +75,11 @@ export default function MarketUpdateDetailPage() {
                     className="block w-full"
                     title="Click to zoom"
                   >
-                    <img src={update.imageUrl} alt={update.title} className="w-full max-h-[520px] object-contain" />
+                    <img
+                      src={proxiedImageSrc(update.imageUrl)}
+                      alt={update.title}
+                      className="w-full max-h-[520px] object-contain"
+                    />
                   </button>
                 </div>
               ) : null}

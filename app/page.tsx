@@ -20,6 +20,16 @@ import Link from 'next/link';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
+function proxiedImageSrc(url: string) {
+  const raw = String(url || '');
+  if (!raw) return '';
+  // Only proxy ImgBB images; leave other sources untouched.
+  if (/^https:\/\/(?:i\.ibb\.co|ibb\.co|image\.ibb\.co)\//i.test(raw)) {
+    return `/api/image-proxy?url=${encodeURIComponent(raw)}`;
+  }
+  return raw;
+}
+
 export default function Home() {
   const [activeModule, setActiveModule] = useState<string>('market');
   const [showTradingSignalForm, setShowTradingSignalForm] = useState(false);
@@ -418,7 +428,7 @@ export default function Home() {
                         {update.imageUrl ? (
                           <div className="aspect-[16/9] bg-terminal-bg overflow-hidden">
                             <img 
-                              src={update.imageUrl} 
+                              src={proxiedImageSrc(update.imageUrl)} 
                               alt={update.title}
                               className="w-full h-full object-cover"
                             />
@@ -1003,7 +1013,7 @@ export default function Home() {
                           </div>
                         ) : (
                           <img
-                            src={marketUpdateForm.imageUrl}
+                            src={proxiedImageSrc(marketUpdateForm.imageUrl)}
                             alt="Market update preview"
                             className="max-h-48 w-full object-contain rounded"
                             onError={() => setMarketUpdatePreviewError(true)}
