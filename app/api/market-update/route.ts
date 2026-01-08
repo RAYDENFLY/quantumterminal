@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import MarketUpdate from '@/models/MarketUpdate';
+import mongoose from 'mongoose';
 
 // GET /api/market-update - Get all approved market updates (public)
 // GET /api/market-update?all=true - Get all market updates (admin only)
@@ -9,6 +10,7 @@ export async function GET(request: NextRequest) {
     await connectDB();
 
     const { searchParams } = new URL(request.url);
+  const id = searchParams.get('id');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search');
@@ -16,6 +18,26 @@ export async function GET(request: NextRequest) {
     const priority = searchParams.get('priority');
     const status = searchParams.get('status');
     const all = searchParams.get('all') === 'true';
+
+    // GET /api/market-update?id=<id> - Get a single approved market update (public)
+    if (id) {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return NextResponse.json({ success: false, error: 'Invalid id' }, { status: 400 });
+      }
+      const query: any = { _id: id };
+      // Public access: only show approved & published
+      if (!all) {
+        query.status = 'approved';
+        query.publishDate = { $lte: new Date() };
+      }
+
+      const update = await MarketUpdate.findOne(query).lean();
+      if (!update) {
+        return NextResponse.json({ success: false, error: 'Market update not found' }, { status: 404 });
+      }
+
+      return NextResponse.json({ success: true, data: update });
+    }
 
     const skip = (page - 1) * limit;
 

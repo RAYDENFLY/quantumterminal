@@ -16,6 +16,7 @@ import { useHotkeys } from '@/hooks/useHotkeys';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUp, faArrowDown, faMinus, faSignal, faExternalLinkAlt, faPlus } from '@fortawesome/free-solid-svg-icons';
 import useSWR from 'swr';
+import Link from 'next/link';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -379,8 +380,21 @@ export default function Home() {
                 
         {Array.isArray(marketUpdatesData?.data) && marketUpdatesData.data.length > 0 ? (
                   <div className="flex gap-4 overflow-x-auto pb-2">
-          {marketUpdatesData.data.map((update: any, index: number) => (
-                      <div key={index} className="bg-terminal-panel rounded-lg border border-terminal-border flex-shrink-0 w-80 overflow-hidden">
+                    {marketUpdatesData.data.map((update: any, index: number) => {
+                      const updateId = update?._id ?? update?.id;
+                      const Wrapper: any = updateId ? Link : 'div';
+                      const wrapperProps = updateId
+                        ? {
+                            href: `/market-update/${encodeURIComponent(String(updateId))}`,
+                          }
+                        : {};
+
+                      return (
+                      <Wrapper
+                        key={updateId || index}
+                        {...wrapperProps}
+                        className="bg-terminal-panel rounded-lg border border-terminal-border flex-shrink-0 w-80 overflow-hidden hover:border-terminal-accent transition-colors"
+                      >
                         {/* Header */}
                         <div className="p-3 border-b border-terminal-border">
                           <div className="flex items-center space-x-3">
@@ -442,8 +456,9 @@ export default function Home() {
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      </Wrapper>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center text-gray-400 text-sm py-8">
