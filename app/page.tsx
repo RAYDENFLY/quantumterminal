@@ -690,7 +690,7 @@ export default function Home() {
         {renderActiveModule()}
       </main>
 
-  <SiteFooter showModuleHotkeys />
+  <SiteFooter/>
 
       {/* Trading Signal Form Modal */}
       {showTradingSignalForm && (
