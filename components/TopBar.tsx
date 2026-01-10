@@ -1,18 +1,11 @@
-
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-<<<<<<< HEAD
-  faChartLine, 
-  faNewspaper, 
-  faCubes, 
-=======
   faChartLine,
   faNewspaper,
   faCubes,
->>>>>>> 3112512 (top bar bug fix)
   faBook,
   faGraduationCap,
   faBell,
@@ -49,7 +42,6 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
   const pathname = usePathname();
 
   function goToModule(moduleId: string) {
-    // Home page is a single-page module switcher; other routes should navigate back with a module hint.
     if (pathname === '/' || pathname === '' || pathname == null) {
       setActiveModule(moduleId);
       return;
@@ -57,7 +49,6 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
     router.push(`/?module=${encodeURIComponent(moduleId)}`);
   }
 
-  // Global hotkeys (work on /community and other routes too)
   useHotkeys([
     { key: 'Alt+1', action: () => goToModule('market') },
     { key: 'Alt+2', action: () => goToModule('news') },
@@ -66,46 +57,6 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
     { key: 'Alt+5', action: () => goToModule('learning') },
     { key: 'Alt+6', action: () => goToModule('submissions') },
   ]);
-
-  const { data: meData, mutate: mutateMe } = useSWR('/api/auth/me', fetcher);
-
-  const user = meData?.success ? meData.user : null;
-
-  const myProfileHref = user?.username ? `/u/${encodeURIComponent(String(user.username).toLowerCase())}` : null;
-
-  useEffect(() => {
-    function onDocumentMouseDown(e: MouseEvent) {
-      if (!isUserMenuOpen) return;
-      const el = userMenuRef.current;
-      if (!el) return;
-      if (e.target instanceof Node && !el.contains(e.target)) {
-        setIsUserMenuOpen(false);
-      }
-    }
-
-    function onDocumentKeyDown(e: KeyboardEvent) {
-      if (!isUserMenuOpen) return;
-      if (e.key === 'Escape') setIsUserMenuOpen(false);
-    }
-
-    document.addEventListener('mousedown', onDocumentMouseDown);
-    document.addEventListener('keydown', onDocumentKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onDocumentMouseDown);
-      document.removeEventListener('keydown', onDocumentKeyDown);
-    };
-  }, [isUserMenuOpen]);
-
-  async function onLogout() {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } finally {
-      mutateMe();
-    }
-  }
-
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   const { data: meData, mutate: mutateMe } = useSWR('/api/auth/me', fetcher);
   const user = meData?.success ? meData.user : null;
@@ -175,22 +126,12 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
             {modules.map((module) => (
               <button
                 key={module.id}
-<<<<<<< HEAD
                 onClick={() => goToModule(module.id)}
-                className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${
-                  activeModule === module.id
+                className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center justify-center ${activeModule === module.id
                     ? 'bg-terminal-accent text-terminal-bg'
                     : 'text-gray-400 hover:text-terminal-text hover:bg-terminal-bg'
-                }`}
-                title={module.hotkey}
-=======
-                onClick={() => setActiveModule(module.id)}
-                className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center justify-center ${activeModule === module.id
-                  ? 'bg-terminal-accent text-terminal-bg'
-                  : 'text-gray-400 hover:text-terminal-text hover:bg-terminal-bg'
                   }`}
                 title={`${module.label} (${module.hotkey})`}
->>>>>>> 3112512 (top bar bug fix)
               >
                 <FontAwesomeIcon icon={module.icon} className="w-4 h-4" />
               </button>
@@ -268,10 +209,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
               <FontAwesomeIcon icon={faUsers} className="w-5 h-5" />
               <span className="hidden lg:inline text-sm">Community</span>
             </Link>
-<<<<<<< HEAD
 
-=======
->>>>>>> 3112512 (top bar bug fix)
             <Link
               href="/donasi"
               className="hidden md:inline-flex items-center space-x-2 p-2 rounded-md text-gray-400 hover:text-terminal-accent transition-colors"
@@ -316,8 +254,8 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
                     setIsMobileMenuOpen(false);
                   }}
                   className={`px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 flex items-center space-x-3 ${activeModule === module.id
-                    ? 'bg-terminal-accent text-terminal-bg'
-                    : 'text-gray-400 hover:text-terminal-text hover:bg-terminal-bg'
+                      ? 'bg-terminal-accent text-terminal-bg'
+                      : 'text-gray-400 hover:text-terminal-text hover:bg-terminal-bg'
                     }`}
                 >
                   <FontAwesomeIcon icon={module.icon} className="w-4 h-4" />
@@ -380,10 +318,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
                 <FontAwesomeIcon icon={faUsers} className="w-4 h-4" />
                 <span>Community</span>
               </Link>
-<<<<<<< HEAD
 
-=======
->>>>>>> 3112512 (top bar bug fix)
               <Link
                 href="/donasi"
                 onClick={() => setIsMobileMenuOpen(false)}
