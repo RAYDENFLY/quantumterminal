@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import useSWR from 'swr';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUp, faArrowDown } from '@fortawesome/free-solid-svg-icons';
+import AIChartAnalysis from './AIChartAnalysis';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -59,7 +60,7 @@ export default function MarketOverview() {
   return (
     <div className="terminal-panel py-6">
       <h2 className="terminal-header mb-6">📊 Global Market Overview</h2>
-      
+
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
         {/* Total Market Cap */}
         <div className="py-3">
@@ -89,7 +90,7 @@ export default function MarketOverview() {
             {marketData.market_cap_percentage.btc.toFixed(2)}%
           </div>
           <div className="w-full bg-terminal-bg rounded-full h-2 mt-3">
-            <div 
+            <div
               className="bg-orange-400 h-2 rounded-full transition-all duration-500"
               style={{ width: `${marketData.market_cap_percentage.btc}%` }}
             ></div>
@@ -103,7 +104,7 @@ export default function MarketOverview() {
             {marketData.market_cap_percentage.eth.toFixed(2)}%
           </div>
           <div className="w-full bg-terminal-bg rounded-full h-2 mt-3">
-            <div 
+            <div
               className="bg-blue-400 h-2 rounded-full transition-all duration-500"
               style={{ width: `${marketData.market_cap_percentage.eth}%` }}
             ></div>
@@ -118,6 +119,11 @@ export default function MarketOverview() {
           </div>
           <div className="text-sm text-gray-500 mt-2">24h Total</div>
         </div>
+      </div>
+
+
+      <div className="mt-6">
+        <AIChartAnalysis />
       </div>
     </div>
   );
