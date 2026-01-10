@@ -4,9 +4,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
+<<<<<<< HEAD
   faChartLine, 
   faNewspaper, 
   faCubes, 
+=======
+  faChartLine,
+  faNewspaper,
+  faCubes,
+>>>>>>> 3112512 (top bar bug fix)
   faBook,
   faGraduationCap,
   faBell,
@@ -98,6 +104,44 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
     }
   }
 
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const { data: meData, mutate: mutateMe } = useSWR('/api/auth/me', fetcher);
+  const user = meData?.success ? meData.user : null;
+  const myProfileHref = user?.username ? `/u/${encodeURIComponent(String(user.username).toLowerCase())}` : null;
+
+  useEffect(() => {
+    function onDocumentMouseDown(e: MouseEvent) {
+      if (!isUserMenuOpen) return;
+      const el = userMenuRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) {
+        setIsUserMenuOpen(false);
+      }
+    }
+
+    function onDocumentKeyDown(e: KeyboardEvent) {
+      if (!isUserMenuOpen) return;
+      if (e.key === 'Escape') setIsUserMenuOpen(false);
+    }
+
+    document.addEventListener('mousedown', onDocumentMouseDown);
+    document.addEventListener('keydown', onDocumentKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onDocumentMouseDown);
+      document.removeEventListener('keydown', onDocumentKeyDown);
+    };
+  }, [isUserMenuOpen]);
+
+  async function onLogout() {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      mutateMe();
+    }
+  }
+
   // Fetch real news data
   const { data: newsData } = useSWR('/api/news', fetcher, { refreshInterval: 300000 }); // 5 minutes
 
@@ -131,6 +175,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
             {modules.map((module) => (
               <button
                 key={module.id}
+<<<<<<< HEAD
                 onClick={() => goToModule(module.id)}
                 className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${
                   activeModule === module.id
@@ -138,10 +183,16 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
                     : 'text-gray-400 hover:text-terminal-text hover:bg-terminal-bg'
                 }`}
                 title={module.hotkey}
+=======
+                onClick={() => setActiveModule(module.id)}
+                className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center justify-center ${activeModule === module.id
+                  ? 'bg-terminal-accent text-terminal-bg'
+                  : 'text-gray-400 hover:text-terminal-text hover:bg-terminal-bg'
+                  }`}
+                title={`${module.label} (${module.hotkey})`}
+>>>>>>> 3112512 (top bar bug fix)
               >
                 <FontAwesomeIcon icon={module.icon} className="w-4 h-4" />
-                <span className="hidden lg:inline">{module.label}</span>
-                <span className="text-xs opacity-60 hidden xl:inline">{module.hotkey}</span>
               </button>
             ))}
           </nav>
@@ -217,7 +268,10 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
               <FontAwesomeIcon icon={faUsers} className="w-5 h-5" />
               <span className="hidden lg:inline text-sm">Community</span>
             </Link>
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3112512 (top bar bug fix)
             <Link
               href="/donasi"
               className="hidden md:inline-flex items-center space-x-2 p-2 rounded-md text-gray-400 hover:text-terminal-accent transition-colors"
@@ -261,11 +315,10 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
                     goToModule(module.id);
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 flex items-center space-x-3 ${
-                    activeModule === module.id
-                      ? 'bg-terminal-accent text-terminal-bg'
-                      : 'text-gray-400 hover:text-terminal-text hover:bg-terminal-bg'
-                  }`}
+                  className={`px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 flex items-center space-x-3 ${activeModule === module.id
+                    ? 'bg-terminal-accent text-terminal-bg'
+                    : 'text-gray-400 hover:text-terminal-text hover:bg-terminal-bg'
+                    }`}
                 >
                   <FontAwesomeIcon icon={module.icon} className="w-4 h-4" />
                   <span>{module.label}</span>
@@ -327,7 +380,10 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
                 <FontAwesomeIcon icon={faUsers} className="w-4 h-4" />
                 <span>Community</span>
               </Link>
+<<<<<<< HEAD
 
+=======
+>>>>>>> 3112512 (top bar bug fix)
               <Link
                 href="/donasi"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -396,7 +452,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
                         className="w-3 h-3 md:w-4 md:h-4 rounded-full"
                       />
                       <span className="px-1 text-xs md:text-sm">
-                        {coin.symbol.toUpperCase()}: ${(coin.current_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
+                        {coin.symbol.toUpperCase()}: ${(coin.current_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         <span className={`ml-1 ${coin.price_change_percentage_24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           ({coin.price_change_percentage_24h >= 0 ? '+' : ''}{(coin.price_change_percentage_24h || 0).toFixed(2)}%)
                         </span>
@@ -411,7 +467,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
                         className="w-3 h-3 md:w-4 md:h-4 rounded-full"
                       />
                       <span className="px-1 text-xs md:text-sm">
-                        {coin.symbol.toUpperCase()}: ${(coin.current_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
+                        {coin.symbol.toUpperCase()}: ${(coin.current_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         <span className={`ml-1 ${coin.price_change_percentage_24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           ({coin.price_change_percentage_24h >= 0 ? '+' : ''}{(coin.price_change_percentage_24h || 0).toFixed(2)}%)
                         </span>
