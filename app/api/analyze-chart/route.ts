@@ -33,7 +33,28 @@ export async function POST(req: NextRequest) {
 
         const normalizedTicker = ticker.toUpperCase();
         // Use mapped ID or fallback to lowercase ticker (best effort)
-        const coinId = TICKER_MAP[normalizedTicker] || normalizedTicker.toLowerCase();
+        let coinId = TICKER_MAP[normalizedTicker];
+
+        // If not in map, try to search for it
+        if (!coinId) {
+            try {
+                const searchRes = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(normalizedTicker)}`);
+                const searchData = await searchRes.json();
+
+                // Get the first coin that matches the symbol exactly or is the top result
+                const validCoin = searchData.coins?.find((c: any) => c.symbol.toUpperCase() === normalizedTicker) || searchData.coins?.[0];
+
+                if (validCoin) {
+                    coinId = validCoin.id;
+                } else {
+                    // Fallback to simple lowercase if completely failed
+                    coinId = normalizedTicker.toLowerCase();
+                }
+            } catch (err) {
+                console.warn('Coin search failed, falling back to lowercase:', err);
+                coinId = normalizedTicker.toLowerCase();
+            }
+        }
 
         // Mapping TimeFrame to CoinGecko 'days' parameter
         let days = '1';
@@ -59,7 +80,7 @@ export async function POST(req: NextRequest) {
         if (!response.ok) {
             if (response.status === 404) {
                 return NextResponse.json(
-                    { success: false, error: `Coin '${ticker}' not found. Try 'bitcoin' or 'ethereum'.` },
+                    { success: false, error: `Coin '${ticker}' (${coinId}) not found. Please verify the ticker.` },
                     { status: 404 }
                 );
             }
