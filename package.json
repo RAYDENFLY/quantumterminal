@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
-  "start": "next start",
-  "typecheck": "tsc -p tsconfig.json --noEmit"
+    "start": "next start",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "keywords": [
     "crypto",
@@ -28,6 +28,7 @@
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
     "ethers": "^6.16.0",
+    "groq-sdk": "^0.37.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.1.2",
     "next": "^16.0.7",
@@ -35,7 +36,9 @@
     "nodemailer": "^7.0.12",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "react-markdown": "^10.1.0",
     "recharts": "^3.5.1",
+    "remark-gfm": "^4.0.1",
     "swr": "^2.3.7",
     "typescript": "^5.9.3"
   },
