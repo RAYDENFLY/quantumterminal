@@ -19,6 +19,25 @@ import useSWR from 'swr';
 import Link from 'next/link';
 import SiteFooter from '@/components/SiteFooter';
 
+type QuantumTradePerformance = {
+  total_net_pnl?: number;
+  avg_win_rate?: number;
+  total_win?: number;
+  total_loss?: number;
+  avg_total_pnl?: number;
+  avg_apy?: number;
+  source?: string;
+};
+
+type QuantumTradeAccount = {
+  equity?: number;
+  peak_equity?: number;
+  drawdown?: number;
+  total_exposure?: number;
+  usdt_to_idr?: number;
+  starting_capital_usdt?: number;
+};
+
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 function proxiedImageSrc(url: string) {
@@ -93,6 +112,44 @@ export default function Home() {
 
   // Fetch market data for trading signals
   const { data: marketData } = useSWR('/api/global-market', fetcher, { refreshInterval: 60000 });
+
+  // Quantum Trade (local backend via same-origin proxy)
+  const { data: qtPerformanceRes } = useSWR('/api/quantum-trade/performance-metrics', fetcher, {
+    refreshInterval: 60000,
+  });
+  const { data: qtTradesRes } = useSWR('/api/quantum-trade/trades', fetcher, { refreshInterval: 60000 });
+  const { data: qtAccountRes } = useSWR('/api/quantum-trade/account', fetcher, { refreshInterval: 60000 });
+
+  const qtPerformance: QuantumTradePerformance | null = qtPerformanceRes?.success
+    ? qtPerformanceRes?.data
+    : null;
+  const qtAccount: QuantumTradeAccount | null = qtAccountRes?.success ? qtAccountRes?.data : null;
+  const qtTrades: any[] = qtTradesRes?.success
+    ? Array.isArray(qtTradesRes?.data?.trades)
+      ? qtTradesRes.data.trades
+      : []
+    : [];
+
+  const qtConnected =
+    (qtPerformanceRes ? Boolean(qtPerformanceRes?.success) : false) ||
+    (qtTradesRes ? Boolean(qtTradesRes?.success) : false) ||
+    (qtAccountRes ? Boolean(qtAccountRes?.success) : false);
+
+  const formatPct = (v: any) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '—';
+    return `${(n * 100).toFixed(2)}%`;
+  };
+  const formatUsd = (v: any) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '—';
+    return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  };
+  const formatIdr = (v: any) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '—';
+    return n.toLocaleString('id-ID', { maximumFractionDigits: 0 });
+  };
 
   // Fetch current user (for submissions author)
   const { data: meData } = useSWR('/api/auth/me', fetcher);
@@ -303,6 +360,103 @@ export default function Home() {
                   Profit maupun kerugian menjadi tanggung jawab masing-masing trader.<br/>
                   Pastikan selalu menggunakan Risk Management yang baik dan tidak pernah menggunakan dana yang kamu tidak siap kehilangannya.
                 </p>
+
+                {/* Quantum Trade */}
+                <div className="bg-terminal-panel rounded-lg p-3 border border-terminal-border mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs font-semibold text-terminal-accent">Quantum Trade</div>
+                    <div className="text-[11px] text-gray-500">
+                      {qtConnected
+                        ? qtPerformance?.source
+                          ? `source: ${qtPerformance.source}`
+                          : ''
+                        : 'Not connected'}
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-gray-400 mb-3 leading-relaxed">
+                    Machine learning trading system performance snapshot (read-only). Results can change. Use proper risk management.
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                    <div className="bg-terminal-bg rounded p-2 border border-terminal-border">
+                      <div className="text-[11px] text-gray-500">Win rate</div>
+                      <div className="text-sm text-terminal-accent font-semibold">
+                        {qtPerformanceRes ? formatPct(qtPerformance?.avg_win_rate) : 'Loading...'}
+                      </div>
+                    </div>
+                    <div className="bg-terminal-bg rounded p-2 border border-terminal-border">
+                      <div className="text-[11px] text-gray-500">Wins / Losses</div>
+                      <div className="text-sm text-terminal-accent font-semibold">
+                        {qtPerformanceRes && qtPerformance
+                          ? `${qtPerformance.total_win ?? 0} / ${qtPerformance.total_loss ?? 0}`
+                          : 'Loading...'}
+                      </div>
+                    </div>
+                    <div className="bg-terminal-bg rounded p-2 border border-terminal-border">
+                      <div className="text-[11px] text-gray-500">Net PnL (USD)</div>
+                      <div className="text-sm text-terminal-accent font-semibold">
+                        {qtPerformanceRes ? formatUsd(qtPerformance?.total_net_pnl) : 'Loading...'}
+                      </div>
+                    </div>
+                    <div className="bg-terminal-bg rounded p-2 border border-terminal-border">
+                      <div className="text-[11px] text-gray-500">Avg APY</div>
+                      <div className="text-sm text-terminal-accent font-semibold">
+                        {qtPerformanceRes ? formatPct(qtPerformance?.avg_apy) : 'Loading...'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <div className="bg-terminal-bg rounded p-2 border border-terminal-border">
+                      <div className="text-[11px] text-gray-500 mb-1">Account</div>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                        <div className="text-gray-400">Equity</div>
+                        <div className="text-terminal-accent">{qtAccountRes ? formatUsd(qtAccount?.equity) : 'Loading...'}</div>
+                        <div className="text-gray-400">Peak equity</div>
+                        <div className="text-terminal-accent">{qtAccountRes ? formatUsd(qtAccount?.peak_equity) : 'Loading...'}</div>
+                        <div className="text-gray-400">Drawdown</div>
+                        <div className="text-terminal-accent">{qtAccountRes ? formatPct(qtAccount?.drawdown) : 'Loading...'}</div>
+                        <div className="text-gray-400">Exposure</div>
+                        <div className="text-terminal-accent">
+                          {qtAccountRes ? formatPct(qtAccount?.total_exposure) : 'Loading...'}
+                        </div>
+                      </div>
+                      {qtAccount?.usdt_to_idr ? (
+                        <div className="mt-2 text-[11px] text-gray-500">
+                          1 USDT ≈ {formatIdr(qtAccount.usdt_to_idr)} IDR
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="bg-terminal-bg rounded p-2 border border-terminal-border">
+                      <div className="text-[11px] text-gray-500 mb-1">Recent trades</div>
+                      {!qtTradesRes ? (
+                        <div className="text-xs text-gray-400">Loading...</div>
+                      ) : qtTrades.length === 0 ? (
+                        <div className="text-xs text-gray-400">No trades available.</div>
+                      ) : (
+                        <div className="space-y-1">
+                          {qtTrades.slice(0, 5).map((t: any, idx: number) => (
+                            <div key={t?.id ?? idx} className="flex items-center justify-between text-xs">
+                              <div className="text-gray-300 truncate pr-2">
+                                {t?.symbol || t?.asset || '—'}{' '}
+                                <span className="text-gray-500">{t?.side || t?.direction || ''}</span>
+                              </div>
+                              <div className="text-terminal-accent whitespace-nowrap">
+                                {t?.pnl != null ? `PnL ${formatUsd(t.pnl)}` : t?.result || ''}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {qtPerformanceRes && !qtPerformanceRes?.success ? (
+                    <div className="mt-3 text-xs text-terminal-danger">Not connected</div>
+                  ) : null}
+                </div>
                 {tradingSignals.length > 0 ? (
                   <div className="flex gap-4 overflow-x-auto pb-2">
                     {tradingSignals.map((signal: any, index: number) => (
