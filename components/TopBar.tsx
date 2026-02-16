@@ -1,12 +1,11 @@
-
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faChartLine, 
-  faNewspaper, 
-  faCubes, 
+  faChartLine,
+  faNewspaper,
+  faCubes,
   faBook,
   faGraduationCap,
   faBell,
@@ -43,7 +42,6 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
   const pathname = usePathname();
 
   function goToModule(moduleId: string) {
-    // Home page is a single-page module switcher; other routes should navigate back with a module hint.
     if (pathname === '/' || pathname === '' || pathname == null) {
       setActiveModule(moduleId);
       return;
@@ -51,7 +49,6 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
     router.push(`/?module=${encodeURIComponent(moduleId)}`);
   }
 
-  // Global hotkeys (work on /community and other routes too)
   useHotkeys([
     { key: 'Alt+1', action: () => goToModule('market') },
     { key: 'Alt+2', action: () => goToModule('news') },
@@ -62,9 +59,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
   ]);
 
   const { data: meData, mutate: mutateMe } = useSWR('/api/auth/me', fetcher);
-
   const user = meData?.success ? meData.user : null;
-
   const myProfileHref = user?.username ? `/u/${encodeURIComponent(String(user.username).toLowerCase())}` : null;
 
   useEffect(() => {
@@ -132,16 +127,13 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
               <button
                 key={module.id}
                 onClick={() => goToModule(module.id)}
-                className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center space-x-2 ${
-                  activeModule === module.id
+                className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center justify-center ${activeModule === module.id
                     ? 'bg-terminal-accent text-terminal-bg'
                     : 'text-gray-400 hover:text-terminal-text hover:bg-terminal-bg'
-                }`}
-                title={module.hotkey}
+                  }`}
+                title={`${module.label} (${module.hotkey})`}
               >
                 <FontAwesomeIcon icon={module.icon} className="w-4 h-4" />
-                <span className="hidden lg:inline">{module.label}</span>
-                <span className="text-xs opacity-60 hidden xl:inline">{module.hotkey}</span>
               </button>
             ))}
           </nav>
@@ -261,11 +253,10 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
                     goToModule(module.id);
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 flex items-center space-x-3 ${
-                    activeModule === module.id
+                  className={`px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 flex items-center space-x-3 ${activeModule === module.id
                       ? 'bg-terminal-accent text-terminal-bg'
                       : 'text-gray-400 hover:text-terminal-text hover:bg-terminal-bg'
-                  }`}
+                    }`}
                 >
                   <FontAwesomeIcon icon={module.icon} className="w-4 h-4" />
                   <span>{module.label}</span>
@@ -396,7 +387,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
                         className="w-3 h-3 md:w-4 md:h-4 rounded-full"
                       />
                       <span className="px-1 text-xs md:text-sm">
-                        {coin.symbol.toUpperCase()}: ${(coin.current_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
+                        {coin.symbol.toUpperCase()}: ${(coin.current_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         <span className={`ml-1 ${coin.price_change_percentage_24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           ({coin.price_change_percentage_24h >= 0 ? '+' : ''}{(coin.price_change_percentage_24h || 0).toFixed(2)}%)
                         </span>
@@ -411,7 +402,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
                         className="w-3 h-3 md:w-4 md:h-4 rounded-full"
                       />
                       <span className="px-1 text-xs md:text-sm">
-                        {coin.symbol.toUpperCase()}: ${(coin.current_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
+                        {coin.symbol.toUpperCase()}: ${(coin.current_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         <span className={`ml-1 ${coin.price_change_percentage_24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                           ({coin.price_change_percentage_24h >= 0 ? '+' : ''}{(coin.price_change_percentage_24h || 0).toFixed(2)}%)
                         </span>
