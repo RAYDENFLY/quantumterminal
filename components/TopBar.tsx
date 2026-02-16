@@ -10,6 +10,7 @@ import {
   faGraduationCap,
   faBell,
   faSignal,
+  faLayerGroup,
   faBars,
   faTimes,
   faList,
@@ -56,6 +57,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
     { key: 'Alt+4', action: () => goToModule('research') },
     { key: 'Alt+5', action: () => goToModule('learning') },
     { key: 'Alt+6', action: () => goToModule('submissions') },
+  { key: 'Alt+7', action: () => router.push('/layer1') },
   ]);
 
   const { data: meData, mutate: mutateMe } = useSWR('/api/auth/me', fetcher);
@@ -106,6 +108,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
     { id: 'research', label: 'Research', icon: faBook, hotkey: 'ALT+4' },
     { id: 'learning', label: 'Learning', icon: faGraduationCap, hotkey: 'ALT+5' },
     { id: 'submissions', label: 'Submissions', icon: faList, hotkey: 'ALT+6' },
+  { id: 'layer1', label: 'Layer 1', icon: faLayerGroup, hotkey: 'ALT+7', href: '/layer1' },
   ];
 
   return (
@@ -123,19 +126,32 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex space-x-1">
-            {modules.map((module) => (
-              <button
-                key={module.id}
-                onClick={() => goToModule(module.id)}
-                className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center justify-center ${activeModule === module.id
-                    ? 'bg-terminal-accent text-terminal-bg'
-                    : 'text-gray-400 hover:text-terminal-text hover:bg-terminal-bg'
-                  }`}
-                title={`${module.label} (${module.hotkey})`}
-              >
-                <FontAwesomeIcon icon={module.icon} className="w-4 h-4" />
-              </button>
-            ))}
+            {modules.map((module: any) => {
+              const isActive = activeModule === module.id || (module.href && pathname === module.href);
+              const cls = `px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center justify-center ${isActive
+                  ? 'bg-terminal-accent text-terminal-bg'
+                  : 'text-gray-400 hover:text-terminal-text hover:bg-terminal-bg'
+                }`;
+
+              if (module.href) {
+                return (
+                  <Link key={module.id} href={module.href} className={cls} title={`${module.label} (${module.hotkey})`}>
+                    <FontAwesomeIcon icon={module.icon} className="w-4 h-4" />
+                  </Link>
+                );
+              }
+
+              return (
+                <button
+                  key={module.id}
+                  onClick={() => goToModule(module.id)}
+                  className={cls}
+                  title={`${module.label} (${module.hotkey})`}
+                >
+                  <FontAwesomeIcon icon={module.icon} className="w-4 h-4" />
+                </button>
+              );
+            })}
           </nav>
 
           {/* Mobile Menu Button & Alerts */}
@@ -246,23 +262,43 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
         {isMobileMenuOpen && (
           <div className="md:hidden mt-4 pb-4 border-t border-terminal-border pt-4">
             <nav className="flex flex-col space-y-2">
-              {modules.map((module) => (
-                <button
-                  key={module.id}
-                  onClick={() => {
-                    goToModule(module.id);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 flex items-center space-x-3 ${activeModule === module.id
-                      ? 'bg-terminal-accent text-terminal-bg'
-                      : 'text-gray-400 hover:text-terminal-text hover:bg-terminal-bg'
-                    }`}
-                >
-                  <FontAwesomeIcon icon={module.icon} className="w-4 h-4" />
-                  <span>{module.label}</span>
-                  <span className="text-xs opacity-60 ml-auto">{module.hotkey}</span>
-                </button>
-              ))}
+              {modules.map((module: any) => {
+                const isActive = activeModule === module.id || (module.href && pathname === module.href);
+                const cls = `px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 flex items-center space-x-3 ${isActive
+                    ? 'bg-terminal-accent text-terminal-bg'
+                    : 'text-gray-400 hover:text-terminal-text hover:bg-terminal-bg'
+                  }`;
+
+                if (module.href) {
+                  return (
+                    <Link
+                      key={module.id}
+                      href={module.href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={cls}
+                    >
+                      <FontAwesomeIcon icon={module.icon} className="w-4 h-4" />
+                      <span>{module.label}</span>
+                      <span className="text-xs opacity-60 ml-auto">{module.hotkey}</span>
+                    </Link>
+                  );
+                }
+
+                return (
+                  <button
+                    key={module.id}
+                    onClick={() => {
+                      goToModule(module.id);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={cls}
+                  >
+                    <FontAwesomeIcon icon={module.icon} className="w-4 h-4" />
+                    <span>{module.label}</span>
+                    <span className="text-xs opacity-60 ml-auto">{module.hotkey}</span>
+                  </button>
+                );
+              })}
             </nav>
             <div className="mt-4 pt-4 border-t border-terminal-border">
               {/* Auth (mobile) */}
