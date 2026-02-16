@@ -354,7 +354,7 @@ export default function Layer1Terminal() {
     if (!orderflowOk) causes.push('orderflow');
     if (!microOk) causes.push('microstructure');
     const causeText = causes.length ? ` (${causes.join(' + ')})` : '';
-    return `Market data is currently unavailable${causeText}. If your region blocks exchange endpoints, try using a VPN or switching DNS (AdGuard DNS: dns.adguard.com, or Cloudflare DNS: 1.1.1.1).`;
+  return `Market data is currently unavailable${causeText}. If your region blocks exchange endpoints, try using a VPN or switching DNS (AdGuard DNS: dns.adguard.com, or Cloudflare DNS: 1.1.1.1). If you’re on Vercel, VPN/DNS on your device won’t change the server’s region/IP — you may need to deploy in another region or route requests through an upstream proxy/mirror.`;
   }, [dataDisconnected, orderflowOk, microOk]);
 
   const whaleLogsOk = Boolean(whaleLogsRes?.success);

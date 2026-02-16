@@ -2,6 +2,18 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
+function getBinanceFuturesBaseUrl() {
+  // Allows swapping the upstream (e.g., via a compliant proxy/mirror) when Vercel region/IP is blocked.
+  // Example: LAYER1_BINANCE_FAPI_BASE_URL=https://fapi.binance.com
+  return (process.env.LAYER1_BINANCE_FAPI_BASE_URL || 'https://fapi.binance.com').replace(/\/$/, '');
+}
+
+function binanceBlockedHint(status: number) {
+  // Binance sometimes returns 451 (Unavailable For Legal Reasons) depending on source IP/region.
+  if (status !== 451) return null;
+  return 'Binance returned HTTP 451 (Unavailable For Legal Reasons). This usually means the server IP/region is blocked. On Vercel, VPN/DNS on your device will not change the server region. Use a proxy/mirror by setting LAYER1_BINANCE_FAPI_BASE_URL, or deploy the API in a region that can reach Binance.';
+}
+
 function sanitizeSymbol(v: string | null) {
   const s = String(v ?? '').trim().toUpperCase();
   if (!s) return null;
@@ -69,12 +81,14 @@ export async function GET(req: Request) {
     const whaleTh = Number.isFinite(whaleThresholdUsdt) ? Math.max(1000, whaleThresholdUsdt) : 250000;
 
     // Fetch trades (for tps, agg vol/s, CVD delta per tick, realized vol)
-    const tradesUrl = new URL('https://fapi.binance.com/fapi/v1/trades');
+  const base = getBinanceFuturesBaseUrl();
+
+  const tradesUrl = new URL(`${base}/fapi/v1/trades`);
     tradesUrl.searchParams.set('symbol', symbol);
     tradesUrl.searchParams.set('limit', '1000');
 
     // Fetch orderbook depth (for imbalance, walls, spread)
-    const depthUrl = new URL('https://fapi.binance.com/fapi/v1/depth');
+  const depthUrl = new URL(`${base}/fapi/v1/depth`);
     depthUrl.searchParams.set('symbol', symbol);
     depthUrl.searchParams.set('limit', String(depthLimit));
 
@@ -88,13 +102,25 @@ export async function GET(req: Request) {
 
     if (!tradesRes.ok) {
       return NextResponse.json(
-        { success: false, error: `Binance trades error (${tradesRes.status})`, details: tradesRaw },
+        {
+          success: false,
+          error: `Binance trades error (${tradesRes.status})`,
+          details: tradesRaw,
+          hint: binanceBlockedHint(tradesRes.status),
+          upstream: base,
+        },
         { status: 502 }
       );
     }
     if (!depthRes.ok) {
       return NextResponse.json(
-        { success: false, error: `Binance depth error (${depthRes.status})`, details: depthRaw },
+        {
+          success: false,
+          error: `Binance depth error (${depthRes.status})`,
+          details: depthRaw,
+          hint: binanceBlockedHint(depthRes.status),
+          upstream: base,
+        },
         { status: 502 }
       );
     }
