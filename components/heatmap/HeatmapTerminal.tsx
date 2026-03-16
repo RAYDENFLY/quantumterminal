@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import useSWR from 'swr';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -146,6 +146,203 @@ function TakerBar({ pct }: { pct: number | null }) {
   );
 }
 
+// ─── Depth Chart ─────────────────────────────────────────────────────────────
+
+function DepthChart({
+  bidDepth,
+  askDepth,
+  mid,
+  bidWalls,
+  askWalls,
+}: {
+  bidDepth: Level[];
+  askDepth: Level[];
+  mid: number | null;
+  bidWalls: Wall[];
+  askWalls: Wall[];
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const W = canvas.offsetWidth;
+    const H = canvas.offsetHeight;
+    canvas.width = W;
+    canvas.height = H;
+
+    ctx.clearRect(0, 0, W, H);
+
+    if (!bidDepth.length && !askDepth.length) return;
+
+    // ── Build cumulative arrays ──
+    // Bids: sorted descending (highest price first → nearest mid on right)
+    const bids = [...bidDepth].sort((a, b) => b.price - a.price);
+    // Asks: sorted ascending (lowest price first → nearest mid on left)
+    const asks = [...askDepth].sort((a, b) => a.price - b.price);
+
+    // Compute cumulative notional
+    let cumBid = 0;
+    const bidPoints = bids.map((l) => { cumBid += l.notional; return { price: l.price, cum: cumBid }; });
+    let cumAsk = 0;
+    const askPoints = asks.map((l) => { cumAsk += l.notional; return { price: l.price, cum: cumAsk }; });
+
+    const allPrices = [...bidPoints.map(p => p.price), ...askPoints.map(p => p.price)];
+    const minPrice = Math.min(...allPrices);
+    const maxPrice = Math.max(...allPrices);
+    const maxCum = Math.max(bidPoints[bidPoints.length - 1]?.cum ?? 0, askPoints[askPoints.length - 1]?.cum ?? 0, 1);
+
+    const PAD_L = 52, PAD_R = 12, PAD_T = 12, PAD_B = 32;
+    const chartW = W - PAD_L - PAD_R;
+    const chartH = H - PAD_T - PAD_B;
+
+    const px = (price: number) => PAD_L + ((price - minPrice) / (maxPrice - minPrice || 1)) * chartW;
+    const py = (cum: number)   => PAD_T + chartH - (cum / maxCum) * chartH;
+
+    // ── Background grid ──
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = PAD_T + (chartH / 4) * i;
+      ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y); ctx.stroke();
+    }
+    for (let i = 0; i <= 4; i++) {
+      const x = PAD_L + (chartW / 4) * i;
+      ctx.beginPath(); ctx.moveTo(x, PAD_T); ctx.lineTo(x, PAD_T + chartH); ctx.stroke();
+    }
+
+    // ── Bid fill ──
+    if (bidPoints.length > 1) {
+      ctx.beginPath();
+      ctx.moveTo(px(bidPoints[0].price), PAD_T + chartH);
+      for (const p of bidPoints) ctx.lineTo(px(p.price), py(p.cum));
+      ctx.lineTo(px(bidPoints[bidPoints.length - 1].price), PAD_T + chartH);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(0, PAD_T, 0, PAD_T + chartH);
+      grad.addColorStop(0, 'rgba(16,185,129,0.35)');
+      grad.addColorStop(1, 'rgba(16,185,129,0.04)');
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(px(bidPoints[0].price), py(bidPoints[0].cum));
+      for (const p of bidPoints) ctx.lineTo(px(p.price), py(p.cum));
+      ctx.strokeStyle = 'rgba(16,185,129,0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    // ── Ask fill ──
+    if (askPoints.length > 1) {
+      ctx.beginPath();
+      ctx.moveTo(px(askPoints[0].price), PAD_T + chartH);
+      for (const p of askPoints) ctx.lineTo(px(p.price), py(p.cum));
+      ctx.lineTo(px(askPoints[askPoints.length - 1].price), PAD_T + chartH);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(0, PAD_T, 0, PAD_T + chartH);
+      grad.addColorStop(0, 'rgba(239,68,68,0.35)');
+      grad.addColorStop(1, 'rgba(239,68,68,0.04)');
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(px(askPoints[0].price), py(askPoints[0].cum));
+      for (const p of askPoints) ctx.lineTo(px(p.price), py(p.cum));
+      ctx.strokeStyle = 'rgba(239,68,68,0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    // ── Mid price line ──
+    if (mid != null && mid >= minPrice && mid <= maxPrice) {
+      const mx = px(mid);
+      ctx.beginPath();
+      ctx.moveTo(mx, PAD_T);
+      ctx.lineTo(mx, PAD_T + chartH);
+      ctx.strokeStyle = 'rgba(250,204,21,0.7)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = 'rgba(250,204,21,0.85)';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Mid', mx, PAD_T - 2);
+    }
+
+    // ── Wall markers ──
+    const bidWallPrices = new Set(bidWalls.map(w => w.price));
+    const askWallPrices = new Set(askWalls.map(w => w.price));
+    const drawWall = (price: number, color: string) => {
+      if (price < minPrice || price > maxPrice) return;
+      const wx = px(price);
+      ctx.beginPath();
+      ctx.moveTo(wx, PAD_T);
+      ctx.lineTo(wx, PAD_T + chartH);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    };
+    bidWallPrices.forEach(p => drawWall(p, 'rgba(16,185,129,0.5)'));
+    askWallPrices.forEach(p => drawWall(p, 'rgba(239,68,68,0.5)'));
+
+    // ── Y-axis labels ──
+    ctx.fillStyle = 'rgba(156,163,175,0.8)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= 4; i++) {
+      const val = (maxCum / 4) * (4 - i);
+      const y = PAD_T + (chartH / 4) * i;
+      const label = val >= 1_000_000 ? `${(val / 1_000_000).toFixed(1)}M` :
+                    val >= 1_000     ? `${(val / 1_000).toFixed(0)}K`     : val.toFixed(0);
+      ctx.fillText(`$${label}`, PAD_L - 4, y + 3);
+    }
+
+    // ── X-axis labels ──
+    ctx.textAlign = 'center';
+    for (let i = 0; i <= 4; i++) {
+      const price = minPrice + ((maxPrice - minPrice) / 4) * i;
+      const x = PAD_L + (chartW / 4) * i;
+      const label = price >= 1000 ? price.toFixed(0) : price.toFixed(4);
+      ctx.fillText(label, x, PAD_T + chartH + 18);
+    }
+
+  }, [bidDepth, askDepth, mid, bidWalls, askWalls]);
+
+  return (
+    <div className="px-2 pb-3 pt-1">
+      <div className="flex items-center justify-between mb-1.5 px-2">
+        <div className="text-[11px] font-semibold text-terminal-accent">Cumulative Depth Chart</div>
+        <div className="flex items-center gap-3 text-[10px]">
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-1.5 rounded-sm bg-emerald-500/70" />
+            <span className="text-gray-400">Bids</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-1.5 rounded-sm bg-red-500/70" />
+            <span className="text-gray-400">Asks</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-px bg-yellow-400/70" style={{ borderTop: '2px dashed rgba(250,204,21,0.7)' }} />
+            <span className="text-gray-400">Mid</span>
+          </span>
+        </div>
+      </div>
+      <canvas
+        ref={canvasRef}
+        className="w-full rounded"
+        style={{ height: 180, display: 'block' }}
+      />
+    </div>
+  );
+}
+
 // ─── Heatmap rows ─────────────────────────────────────────────────────────────
 
 function HeatmapRows({
@@ -222,7 +419,7 @@ function HeatmapRows({
   }
 
   return (
-    <div className="flex-1 min-h-0 overflow-hidden flex flex-col select-none">
+    <div className="overflow-hidden flex flex-col select-none">
       {/* column header */}
       <div className="flex items-center px-2 py-1 text-[10px] text-gray-500 border-b border-terminal-border">
         <span className="flex-1">Price</span>
@@ -251,13 +448,13 @@ function HeatmapRows({
         </>
       ) : (
         /* ── LEFT/RIGHT: asks on left column, bids on right column ── */
-        <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="flex overflow-hidden">
           {/* Left — Asks */}
           <div className="flex-1 flex flex-col min-w-0 border-r border-terminal-border">
             <div className="px-2 py-1 text-[10px] text-red-400 font-semibold border-b border-terminal-border bg-red-500/5 shrink-0">
               ▲ Asks
             </div>
-            <div className="overflow-y-auto flex-1">
+            <div className="overflow-y-auto" style={{ maxHeight: MAX_ROWS * ROW_H }}>
               {/* show asks top-of-book last (closest to mid at bottom) */}
               {asks.map((l, i) => <Row key={`ask-${i}`} level={{ ...l, side: 'ask' }} side="ask" />)}
             </div>
@@ -278,7 +475,7 @@ function HeatmapRows({
             <div className="px-2 py-1 text-[10px] text-emerald-400 font-semibold border-b border-terminal-border bg-emerald-500/5 shrink-0">
               ▼ Bids
             </div>
-            <div className="overflow-y-auto flex-1">
+            <div className="overflow-y-auto" style={{ maxHeight: MAX_ROWS * ROW_H }}>
               {bids.map((l, i) => <Row key={`bid-${i}`} level={{ ...l, side: 'bid' }} side="bid" />)}
             </div>
           </div>
@@ -839,9 +1036,523 @@ function WallAnalysisPanel({ bidWalls, askWalls, mid }: {
   );
 }
 
+// ─── Spoofing / Fake Wall Detection ──────────────────────────────────────────
 
+const SPOOF_WINDOW_MS = 5000;   // look-back window
+const SPOOF_DROP_THRESHOLD = 0.70; // 70% drop triggers alert
+const SPOOF_MIN_NOTIONAL = 50_000; // only track levels with significant notional
+const SPOOF_MAX_ALERTS = 5;       // max alerts to show at once
+
+type SpoofAlert = {
+  id: string;           // price+side key
+  price: number;
+  side: 'bid' | 'ask';
+  prevQty: number;
+  currQty: number;
+  dropPct: number;      // e.g. 0.82 = 82% drop
+  detectedAt: number;   // timestamp ms
+};
+
+type LevelSnapshot = {
+  qty: number;
+  notional: number;
+  ts: number;
+};
+
+function useSpoofingDetector(
+  bidDepth: Level[],
+  askDepth: Level[],
+): SpoofAlert[] {
+  // price-key → last snapshot
+  const snapshotRef = useRef<Map<string, LevelSnapshot>>(new Map());
+  const [alerts, setAlerts] = useState<SpoofAlert[]>([]);
+
+  useEffect(() => {
+    const now = Date.now();
+    const newAlerts: SpoofAlert[] = [];
+    const snap = snapshotRef.current;
+
+    const check = (levels: Level[], side: 'bid' | 'ask') => {
+      const currentKeys = new Set<string>();
+
+      for (const lvl of levels) {
+        const key = `${side}:${lvl.price}`;
+        currentKeys.add(key);
+        const prev = snap.get(key);
+
+        if (prev) {
+          const ageSecs = (now - prev.ts) / 1000;
+          // Only flag if within window AND had significant size before
+          if (
+            ageSecs <= SPOOF_WINDOW_MS / 1000 &&
+            prev.notional >= SPOOF_MIN_NOTIONAL &&
+            prev.qty > 0 &&
+            lvl.qty < prev.qty
+          ) {
+            const dropPct = 1 - lvl.qty / prev.qty;
+            if (dropPct >= SPOOF_DROP_THRESHOLD) {
+              newAlerts.push({
+                id: key,
+                price: lvl.price,
+                side,
+                prevQty: prev.qty,
+                currQty: lvl.qty,
+                dropPct,
+                detectedAt: now,
+              });
+            }
+          }
+        }
+
+        // update snapshot
+        snap.set(key, { qty: lvl.qty, notional: lvl.notional, ts: now });
+      }
+
+      // Also check levels that disappeared entirely (qty → 0 = wall removed)
+      for (const [key, prev] of snap.entries()) {
+        if (!key.startsWith(side + ':')) continue;
+        if (currentKeys.has(key)) continue;
+        const ageSecs = (now - prev.ts) / 1000;
+        if (
+          ageSecs <= SPOOF_WINDOW_MS / 1000 &&
+          prev.notional >= SPOOF_MIN_NOTIONAL &&
+          prev.qty > 0
+        ) {
+          const priceStr = key.split(':')[1];
+          newAlerts.push({
+            id: key,
+            price: Number(priceStr),
+            side,
+            prevQty: prev.qty,
+            currQty: 0,
+            dropPct: 1,
+            detectedAt: now,
+          });
+          // remove from snapshot so we don't re-alert
+          snap.delete(key);
+        }
+      }
+    };
+
+    check(bidDepth, 'bid');
+    check(askDepth, 'ask');
+
+    if (newAlerts.length > 0) {
+      setAlerts((prev) => {
+        // merge: deduplicate by id, keep latest, cap at max
+        const map = new Map(prev.map((a) => [a.id, a]));
+        for (const a of newAlerts) map.set(a.id, a);
+        return Array.from(map.values())
+          .sort((a, b) => b.detectedAt - a.detectedAt)
+          .slice(0, SPOOF_MAX_ALERTS);
+      });
+    }
+
+    // Expire old alerts after 30s
+    setAlerts((prev) =>
+      prev.filter((a) => now - a.detectedAt < 30_000)
+    );
+  }, [bidDepth, askDepth]);
+
+  return alerts;
+}
+
+function SpoofingWarningPanel({ alerts }: { alerts: SpoofAlert[] }) {
+  const now = Date.now();
+
+  return (
+    <div className="bg-terminal-panel border border-terminal-border rounded-lg p-4 space-y-3">
+      {/* header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="text-xs font-semibold text-terminal-accent">Spoofing / Fake Wall Warning</div>
+          {alerts.length > 0 && (
+            <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse inline-block" />
+          )}
+        </div>
+        <span className="text-[10px] text-gray-500">
+          {alerts.length === 0 ? 'Monitoring…' : `${alerts.length} alert${alerts.length > 1 ? 's' : ''}`}
+        </span>
+      </div>
+
+      {alerts.length === 0 ? (
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+          No suspicious wall activity detected.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {alerts.map((a) => {
+            const isSell = a.side === 'ask';
+            const borderCol = isSell
+              ? 'border-orange-500/40 bg-orange-500/5'
+              : 'border-yellow-500/40 bg-yellow-500/5';
+            const priceCol = isSell ? 'text-red-300' : 'text-emerald-300';
+            const ageS = Math.round((now - a.detectedAt) / 1000);
+            const headline = a.currQty === 0
+              ? `Large ${isSell ? 'sell' : 'buy'} wall removed quickly.`
+              : `Large ${isSell ? 'sell' : 'buy'} wall dropped ${(a.dropPct * 100).toFixed(0)}%.`;
+            const detail = a.currQty === 0
+              ? `Wall at ${fmtNum(a.price, a.price > 100 ? 2 : 6)} vanished (was ${fmtK(a.prevQty)}).`
+              : `${fmtNum(a.price, a.price > 100 ? 2 : 6)}: ${fmtK(a.prevQty)} → ${fmtK(a.currQty)}`;
+
+            return (
+              <div key={a.id} className={`rounded border px-3 py-2.5 space-y-1 ${borderCol}`}>
+                {/* top row */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-orange-500/25 text-orange-300">
+                    ⚠ SPOOF?
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-mono">{ageS}s ago</span>
+                </div>
+                {/* headline */}
+                <div className="text-[12px] font-semibold text-orange-200">
+                  {headline}
+                </div>
+                {/* detail */}
+                <div className={`text-[11px] font-mono ${priceCol}`}>{detail}</div>
+                {/* conclusion */}
+                <div className="text-[11px] text-gray-400 italic">
+                  Possible spoofing behavior detected.
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* info footer */}
+      <div className="pt-1 border-t border-white/5 text-[10px] text-gray-600">
+        Triggers when a wall drops &gt;{(SPOOF_DROP_THRESHOLD * 100).toFixed(0)}% within {SPOOF_WINDOW_MS / 1000}s · min ${fmtK(SPOOF_MIN_NOTIONAL)} notional
+      </div>
+    </div>
+  );
+}
 
 type LayoutMode = 'top-bottom' | 'left-right';
+
+// ─── Spread Analysis ──────────────────────────────────────────────────────────
+
+type SpreadTier = 'tight' | 'normal' | 'wide' | 'very-wide';
+
+function classifySpread(spreadPct: number): SpreadTier {
+  if (spreadPct < 0.02) return 'tight';
+  if (spreadPct < 0.05) return 'normal';
+  if (spreadPct < 0.15) return 'wide';
+  return 'very-wide';
+}
+
+function SpreadAnalysisPanel({
+  spread,
+  spreadPct,
+  bestBid,
+  bestAsk,
+}: {
+  spread: number | null;
+  spreadPct: number | null;
+  bestBid: number | null;
+  bestAsk: number | null;
+}) {
+  const tierStyle: Record<SpreadTier, {
+    border: string; badge: string; label: string; dot: string; headCol: string;
+  }> = {
+    'tight':     { border: 'border-emerald-500/30 bg-emerald-500/5', badge: 'bg-emerald-500/20 text-emerald-300', label: 'TIGHT',     dot: 'bg-emerald-400', headCol: 'text-emerald-300' },
+    'normal':    { border: 'border-sky-500/30 bg-sky-500/5',         badge: 'bg-sky-500/20 text-sky-300',         label: 'NORMAL',    dot: 'bg-sky-400',     headCol: 'text-sky-300'     },
+    'wide':      { border: 'border-yellow-500/30 bg-yellow-500/5',   badge: 'bg-yellow-500/20 text-yellow-300',   label: 'WIDE',      dot: 'bg-yellow-400',  headCol: 'text-yellow-300'  },
+    'very-wide': { border: 'border-red-500/30 bg-red-500/5',         badge: 'bg-red-500/20 text-red-300',         label: 'VERY WIDE', dot: 'bg-red-400',     headCol: 'text-red-300'     },
+  };
+
+  const tier = spreadPct != null ? classifySpread(spreadPct) : null;
+  const st = tier ? tierStyle[tier] : null;
+
+  const headline =
+    tier === 'tight'     ? 'Spread is tight — high liquidity conditions.' :
+    tier === 'normal'    ? 'Spread is within normal range.' :
+    tier === 'wide'      ? 'Spread widening detected.' :
+    tier === 'very-wide' ? 'Spread is very wide — low liquidity / high volatility.' :
+    null;
+
+  const interpretation =
+    tier === 'tight'     ? 'Low cost to enter/exit. Market makers are active.' :
+    tier === 'normal'    ? 'Typical market conditions. No unusual spread activity.' :
+    tier === 'wide'      ? 'Spread widening may indicate lower liquidity and higher volatility.' :
+    tier === 'very-wide' ? 'Extreme spread. Exercise caution — slippage risk is elevated.' :
+    null;
+
+  // Gauge: map spreadPct 0–0.2% → bar width 0–100%
+  const gaugeW = spreadPct != null ? Math.min(100, (spreadPct / 0.2) * 100) : 0;
+  const gaugeCol =
+    tier === 'tight' ? 'bg-emerald-500' :
+    tier === 'normal' ? 'bg-sky-500' :
+    tier === 'wide' ? 'bg-yellow-500' : 'bg-red-500';
+
+  return (
+    <div className="bg-terminal-panel border border-terminal-border rounded-lg p-4 space-y-3">
+      <div className="text-xs font-semibold text-terminal-accent">Spread Analysis</div>
+
+      {spread == null || spreadPct == null || !st ? (
+        <div className="text-xs text-gray-500">Insufficient data.</div>
+      ) : (
+        <>
+          {/* numeric row */}
+          <div className="flex items-center justify-between text-[11px] font-mono">
+            <span className="text-emerald-400">{fmtNum(bestBid, bestBid && bestBid > 100 ? 2 : 6)}</span>
+            <div className="text-center">
+              <div className="text-gray-400">Spread</div>
+              <div className="text-yellow-300 font-bold">{fmtNum(spread, spread > 1 ? 4 : 6)}</div>
+              <div className="text-gray-500">{(spreadPct).toFixed(4)}%</div>
+            </div>
+            <span className="text-red-400">{fmtNum(bestAsk, bestAsk && bestAsk > 100 ? 2 : 6)}</span>
+          </div>
+
+          {/* gauge bar */}
+          <div>
+            <div className="flex justify-between text-[10px] text-gray-600 mb-1">
+              <span>0% (tight)</span>
+              <span>≥0.2% (wide)</span>
+            </div>
+            <div className="relative h-3 bg-gray-700 rounded overflow-hidden">
+              <div
+                className={`absolute left-0 top-0 h-full ${gaugeCol} transition-all duration-700`}
+                style={{ width: `${gaugeW.toFixed(1)}%` }}
+              />
+            </div>
+          </div>
+
+          {/* signal card */}
+          <div className={`rounded border px-3 py-2.5 space-y-1 ${st.border}`}>
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-1 ${st.badge}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${st.dot} inline-block`} />
+              {st.label}
+            </span>
+            <div className={`text-[12px] font-semibold ${st.headCol}`}>{headline}</div>
+            <div className="text-[11px] text-gray-400 italic">{interpretation}</div>
+          </div>
+
+          {/* reference table */}
+          <div className="grid grid-cols-4 gap-1 text-[10px] text-center">
+            {(
+              [
+                { label: '<0.02%', name: 'Tight',     col: 'text-emerald-400', active: tier === 'tight'     },
+                { label: '<0.05%', name: 'Normal',    col: 'text-sky-400',     active: tier === 'normal'    },
+                { label: '<0.15%', name: 'Wide',      col: 'text-yellow-400',  active: tier === 'wide'      },
+                { label: '≥0.15%', name: 'Very Wide', col: 'text-red-400',     active: tier === 'very-wide' },
+              ] as { label: string; name: string; col: string; active: boolean }[]
+            ).map(({ label, name, col, active }) => (
+              <div
+                key={name}
+                className={`rounded px-1 py-1 border ${active ? 'border-white/20 bg-white/5' : 'border-white/5 opacity-40'}`}
+              >
+                <div className={`font-bold font-mono ${col}`}>{label}</div>
+                <div className="text-gray-500">{name}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Short-Term Bias ──────────────────────────────────────────────────────────
+
+type BiasTier = 'strong-bull' | 'bull' | 'neutral' | 'bear' | 'strong-bear';
+
+type BiasResult = {
+  tier: BiasTier;
+  score: number;          // -4 to +4
+  headline: string;
+  reasons: string[];
+  caution: string | null;
+};
+
+function computeBias({
+  pressureRatio,
+  pressureSide,
+  imbalanceTier,
+  bidWalls,
+  askWalls,
+  mid,
+  spreadTier,
+  takerBuyPct,
+}: {
+  pressureRatio: number | null;
+  pressureSide: 'BUY' | 'SELL' | 'NEUTRAL' | null;
+  imbalanceTier: 'strong-bull' | 'bull' | 'balanced' | 'bear' | 'strong-bear' | null;
+  bidWalls: Wall[];
+  askWalls: Wall[];
+  mid: number | null;
+  spreadTier: SpreadTier | null;
+  takerBuyPct: number | null;
+}): BiasResult {
+  let score = 0;
+  const reasons: string[] = [];
+
+  // 1. Orderbook imbalance (+2 / -2)
+  if (imbalanceTier === 'strong-bull') { score += 2; reasons.push('Strong bid-side dominance in orderbook.'); }
+  else if (imbalanceTier === 'bull')   { score += 1; reasons.push('Bid liquidity outweighs asks.'); }
+  else if (imbalanceTier === 'bear')   { score -= 1; reasons.push('Ask liquidity outweighs bids.'); }
+  else if (imbalanceTier === 'strong-bear') { score -= 2; reasons.push('Strong ask-side dominance in orderbook.'); }
+
+  // 2. Market pressure (+1 / -1)
+  if (pressureSide === 'BUY')  { score += 1; reasons.push('Buy pressure dominates (pressure ratio: ' + (pressureRatio?.toFixed(2) ?? '—') + '×).'); }
+  if (pressureSide === 'SELL') { score -= 1; reasons.push('Sell pressure dominates (pressure ratio: ' + (pressureRatio?.toFixed(2) ?? '—') + '×).'); }
+
+  // 3. Taker flow (+1 / -1)
+  if (takerBuyPct != null) {
+    if (takerBuyPct >= 0.60)      { score += 1; reasons.push(`Taker buy flow is dominant (${(takerBuyPct * 100).toFixed(1)}%).`); }
+    else if (takerBuyPct <= 0.40) { score -= 1; reasons.push(`Taker sell flow is dominant (${((1 - takerBuyPct) * 100).toFixed(1)}%).`); }
+  }
+
+  // 4. Nearby walls — bid walls close below mid = support (+1), ask walls close above = resistance (-1)
+  if (mid != null && mid > 0) {
+    const nearBid = bidWalls.filter(w => (mid - w.price) / mid < 0.01);
+    const nearAsk = askWalls.filter(w => (w.price - mid) / mid < 0.01);
+    if (nearBid.length > 0) { score += 1; reasons.push('Strong bid liquidity wall(s) detected below price.'); }
+    if (nearAsk.length > 0) { score -= 1; reasons.push('Large sell wall(s) detected above price.'); }
+  }
+
+  // classify
+  let tier: BiasTier;
+  if (score >= 3)      tier = 'strong-bull';
+  else if (score >= 1) tier = 'bull';
+  else if (score <= -3) tier = 'strong-bear';
+  else if (score <= -1) tier = 'bear';
+  else                  tier = 'neutral';
+
+  const headlines: Record<BiasTier, string> = {
+    'strong-bull': 'Short-term bias: strongly bullish.',
+    'bull':        'Short-term bias: bullish.',
+    'neutral':     'Short-term bias: neutral.',
+    'bear':        'Short-term bias: bearish.',
+    'strong-bear': 'Short-term bias: strongly bearish.',
+  };
+
+  const caution = spreadTier === 'very-wide' || spreadTier === 'wide'
+    ? 'Note: spread is elevated — signal reliability reduced.'
+    : null;
+
+  return { tier, score, headline: headlines[tier], reasons, caution };
+}
+
+function ShortTermBiasPanel({
+  pressure,
+  bidWalls,
+  askWalls,
+  mid,
+  spreadPct,
+  bidDepth,
+  askDepth,
+}: {
+  pressure: Pressure | null | undefined;
+  bidWalls: Wall[];
+  askWalls: Wall[];
+  mid: number | null;
+  spreadPct: number | null;
+  bidDepth: Level[];
+  askDepth: Level[];
+}) {
+  // derive imbalance tier live
+  const bidVol = bidDepth.reduce((s, l) => s + l.notional, 0);
+  const askVol = askDepth.reduce((s, l) => s + l.notional, 0);
+  const obRatio = askVol > 0 ? bidVol / askVol : null;
+  const imbalanceTier =
+    obRatio == null ? null :
+    obRatio >= 2.0  ? 'strong-bull' :
+    obRatio >= 1.3  ? 'bull' :
+    obRatio >= 0.7  ? 'balanced' :
+    obRatio >= 0.5  ? 'bear' : 'strong-bear';
+
+  const spreadTier = spreadPct != null ? classifySpread(spreadPct) : null;
+
+  const bias = computeBias({
+    pressureRatio: pressure?.pressureRatio ?? null,
+    pressureSide:  pressure?.pressureSide  ?? null,
+    imbalanceTier,
+    bidWalls,
+    askWalls,
+    mid,
+    spreadTier,
+    takerBuyPct: pressure?.takerBuyPct ?? null,
+  });
+
+  const tierStyle: Record<BiasTier, {
+    border: string; badge: string; label: string; icon: string; headCol: string; barCol: string;
+  }> = {
+    'strong-bull': { border: 'border-emerald-500/40 bg-emerald-500/8',  badge: 'bg-emerald-500/25 text-emerald-200', label: 'STRONGLY BULLISH', icon: '▲▲', headCol: 'text-emerald-200', barCol: 'bg-emerald-400' },
+    'bull':        { border: 'border-emerald-500/25 bg-emerald-500/5',  badge: 'bg-emerald-500/15 text-emerald-300', label: 'BULLISH',          icon: '▲',  headCol: 'text-emerald-300', barCol: 'bg-emerald-500' },
+    'neutral':     { border: 'border-yellow-500/25 bg-yellow-500/5',    badge: 'bg-yellow-500/15 text-yellow-300',   label: 'NEUTRAL',          icon: '⇌',  headCol: 'text-yellow-300',  barCol: 'bg-yellow-400' },
+    'bear':        { border: 'border-red-500/25 bg-red-500/5',          badge: 'bg-red-500/15 text-red-300',         label: 'BEARISH',          icon: '▼',  headCol: 'text-red-300',     barCol: 'bg-red-500'    },
+    'strong-bear': { border: 'border-red-500/40 bg-red-500/8',          badge: 'bg-red-500/25 text-red-200',         label: 'STRONGLY BEARISH', icon: '▼▼', headCol: 'text-red-200',     barCol: 'bg-red-400'    },
+  };
+  const st = tierStyle[bias.tier];
+
+  // score bar: -4..+4 → 0..100%
+  const barPct = ((bias.score + 4) / 8) * 100;
+
+  return (
+    <div className="bg-terminal-panel border border-terminal-border rounded-lg p-4 space-y-3">
+      {/* header */}
+      <div className="text-xs font-semibold text-terminal-accent">Short-Term Bias</div>
+
+      {/* score bar */}
+      <div>
+        <div className="flex justify-between text-[10px] text-gray-600 mb-1">
+          <span>Bearish</span>
+          <span className="text-gray-400">Score: {bias.score > 0 ? '+' : ''}{bias.score}</span>
+          <span>Bullish</span>
+        </div>
+        <div className="relative h-4 bg-gray-700 rounded overflow-hidden">
+          {/* center marker */}
+          <div className="absolute left-1/2 top-0 h-full w-px bg-white/20" />
+          <div
+            className={`absolute top-0 h-full ${st.barCol} transition-all duration-700`}
+            style={
+              bias.score >= 0
+                ? { left: '50%', width: `${(barPct - 50).toFixed(1)}%` }
+                : { right: `${(50 - barPct).toFixed(1)}%`, left: `${barPct.toFixed(1)}%`, width: `${(50 - barPct).toFixed(1)}%` }
+            }
+          />
+        </div>
+      </div>
+
+      {/* signal card */}
+      <div className={`rounded border px-3 py-2.5 space-y-2 ${st.border}`}>
+        <div className="flex items-center gap-2">
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${st.badge}`}>
+            {st.icon} {st.label}
+          </span>
+        </div>
+        <div className={`text-[13px] font-bold ${st.headCol}`}>{bias.headline}</div>
+
+        {/* reasons list */}
+        {bias.reasons.length > 0 && (
+          <ul className="space-y-1">
+            {bias.reasons.map((r, i) => (
+              <li key={i} className="flex items-start gap-1.5 text-[11px] text-gray-300">
+                <span className={`mt-0.5 shrink-0 text-[8px] ${st.headCol}`}>◆</span>
+                {r}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* caution */}
+        {bias.caution && (
+          <div className="text-[11px] text-yellow-400/80 italic border-t border-white/5 pt-1.5">
+            ⚠ {bias.caution}
+          </div>
+        )}
+      </div>
+
+      {/* disclaimer */}
+      <div className="text-[10px] text-gray-600 leading-snug">
+        Composite of: OB imbalance · market pressure · taker flow · nearby walls.
+        Not financial advice.
+      </div>
+    </div>
+  );
+}
 
 export default function HeatmapTerminal() {
   const [symbol, setSymbol] = useState('BTCUSDT');
@@ -920,6 +1631,9 @@ export default function HeatmapTerminal() {
 
   const pressure = d?.pressure;
   const pSide = pressure?.pressureSide;
+
+  // Spoofing detector — watches merged depth for rapid wall disappearance
+  const spoofAlerts = useSpoofingDetector(mergedBidDepth, mergedAskDepth);
 
   return (
     <div className="space-y-4">
@@ -1032,7 +1746,6 @@ export default function HeatmapTerminal() {
           className={`bg-terminal-panel border border-terminal-border rounded-lg flex flex-col overflow-hidden ${
             layout === 'left-right' ? '2xl:col-span-2' : 'xl:col-span-2'
           }`}
-          style={{ minHeight: layout === 'left-right' ? 500 : 700 }}
         >
           <div className="flex items-center justify-between px-4 py-2 border-b border-terminal-border">
             <div className="text-xs font-semibold text-terminal-accent">{symbol} — Depth Heatmap</div>
@@ -1051,20 +1764,34 @@ export default function HeatmapTerminal() {
           )}
 
           {ok && d && (
-            <HeatmapRows
-              bidDepth={mergedBidDepth}
-              askDepth={mergedAskDepth}
-              maxNotional={maxNotional}
-              mid={d.mid}
-              bidWalls={showWalls ? d.bidWalls : []}
-              askWalls={showWalls ? d.askWalls : []}
-              layoutMode={layout}
-            />
+            <>
+              <HeatmapRows
+                bidDepth={mergedBidDepth}
+                askDepth={mergedAskDepth}
+                maxNotional={maxNotional}
+                mid={d.mid}
+                bidWalls={showWalls ? d.bidWalls : []}
+                askWalls={showWalls ? d.askWalls : []}
+                layoutMode={layout}
+              />
+              <div className="mt-4 border-t border-terminal-border">
+                <DepthChart
+                  bidDepth={mergedBidDepth}
+                  askDepth={mergedAskDepth}
+                  mid={d.mid}
+                  bidWalls={showWalls ? d.bidWalls : []}
+                  askWalls={showWalls ? d.askWalls : []}
+                />
+              </div>
+            </>
           )}
         </div>
 
         {/* Right side-panel */}
         <div className="space-y-4">
+
+          {/* Spoofing Warning */}
+          <SpoofingWarningPanel alerts={spoofAlerts} />
 
           {/* Pressure meters */}
           <div className="bg-terminal-panel border border-terminal-border rounded-lg p-4 space-y-4">
@@ -1166,6 +1893,25 @@ export default function HeatmapTerminal() {
               <div className="text-sm text-gray-500">—</div>
             )}
           </div>
+
+          {/* Spread Analysis */}
+          <SpreadAnalysisPanel
+            spread={d?.spread ?? null}
+            spreadPct={d?.spread != null && d?.mid ? (d.spread / d.mid) * 100 : null}
+            bestBid={d?.bestBid ?? null}
+            bestAsk={d?.bestAsk ?? null}
+          />
+
+          {/* Short-Term Bias */}
+          <ShortTermBiasPanel
+            pressure={d?.pressure}
+            bidWalls={d?.bidWalls ?? []}
+            askWalls={d?.askWalls ?? []}
+            mid={d?.mid ?? null}
+            spreadPct={d?.spread != null && d?.mid ? (d.spread / d.mid) * 100 : null}
+            bidDepth={mergedBidDepth}
+            askDepth={mergedAskDepth}
+          />
 
           {/* Legend */}
           <div className="bg-terminal-panel border border-terminal-border rounded-lg p-3 text-[11px] text-gray-500 space-y-1">
