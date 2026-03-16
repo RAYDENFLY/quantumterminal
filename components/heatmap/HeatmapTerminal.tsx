@@ -380,7 +380,150 @@ function useLiveOB(symbol: string, enabled: boolean): OBDelta {
   return delta;
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+// ─── Liquidity Wall Analysis ─────────────────────────────────────────────────
+
+type WallSignal = {
+  price: number;
+  notional: number;
+  qty: number;
+  side: 'bid' | 'ask';
+  distPct: number;      // % distance from mid
+  distAbs: number;      // absolute price distance from mid
+  urgency: 'high' | 'medium' | 'low';
+  label: string;        // human-readable summary line
+  sub: string;          // interpretation line
+};
+
+function computeWallSignals(
+  bidWalls: Wall[],
+  askWalls: Wall[],
+  mid: number | null,
+): WallSignal[] {
+  if (!mid || mid <= 0) return [];
+
+  const signals: WallSignal[] = [];
+
+  const process = (walls: Wall[], side: 'bid' | 'ask') => {
+    for (const w of walls) {
+      const distAbs = Math.abs(w.price - mid);
+      const distPct = (distAbs / mid) * 100;
+
+      // urgency thresholds: high < 0.3%, medium < 1%, low ≥ 1%
+      const urgency: WallSignal['urgency'] =
+        distPct < 0.3 ? 'high' : distPct < 1.0 ? 'medium' : 'low';
+
+      const priceStr = fmtNum(w.price, w.price > 100 ? 2 : 6);
+      const notionalStr = `$${fmtK(w.notional)}`;
+
+      if (side === 'ask') {
+        signals.push({
+          price: w.price,
+          notional: w.notional,
+          qty: w.qty,
+          side,
+          distAbs,
+          distPct,
+          urgency,
+          label: `Large sell wall detected near ${priceStr}`,
+          sub: `This may act as short-term resistance. (${notionalStr}, ${distPct.toFixed(2)}% above mid)`,
+        });
+      } else {
+        signals.push({
+          price: w.price,
+          notional: w.notional,
+          qty: w.qty,
+          side,
+          distAbs,
+          distPct,
+          urgency,
+          label: `Large bid wall at ${priceStr}`,
+          sub: `Potential short-term support. (${notionalStr}, ${distPct.toFixed(2)}% below mid)`,
+        });
+      }
+    }
+  };
+
+  process(askWalls, 'ask');
+  process(bidWalls, 'bid');
+
+  // Sort: high urgency first, then by proximity
+  return signals.sort((a, b) => {
+    const uOrder = { high: 0, medium: 1, low: 2 };
+    if (uOrder[a.urgency] !== uOrder[b.urgency]) return uOrder[a.urgency] - uOrder[b.urgency];
+    return a.distAbs - b.distAbs;
+  });
+}
+
+function WallAnalysisPanel({ bidWalls, askWalls, mid }: {
+  bidWalls: Wall[];
+  askWalls: Wall[];
+  mid: number | null;
+}) {
+  const signals = computeWallSignals(bidWalls, askWalls, mid);
+
+  const urgencyStyle = {
+    high:   { dot: 'bg-orange-400', border: 'border-orange-500/30 bg-orange-500/5', badge: 'bg-orange-500/20 text-orange-300', label: 'HIGH' },
+    medium: { dot: 'bg-yellow-400',  border: 'border-yellow-500/30 bg-yellow-500/5', badge: 'bg-yellow-500/20 text-yellow-300',  label: 'MED'  },
+    low:    { dot: 'bg-gray-500',    border: 'border-gray-600/40 bg-gray-700/10',    badge: 'bg-gray-600/30 text-gray-400',      label: 'LOW'  },
+  };
+
+  return (
+    <div className="bg-terminal-panel border border-terminal-border rounded-lg p-4">
+      {/* header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-xs font-semibold text-terminal-accent">Liquidity Wall Analysis</div>
+        {signals.length > 0 && (
+          <span className="text-[10px] text-gray-500">{signals.length} signal{signals.length > 1 ? 's' : ''}</span>
+        )}
+      </div>
+
+      {signals.length === 0 ? (
+        <div className="text-xs text-gray-500">No significant walls near current price.</div>
+      ) : (
+        <div className="space-y-2">
+          {signals.slice(0, 6).map((s, i) => {
+            const st = urgencyStyle[s.urgency];
+            const sideCol = s.side === 'ask' ? 'text-red-300' : 'text-emerald-300';
+            const sideIcon = s.side === 'ask' ? '▲' : '▼';
+            return (
+              <div
+                key={i}
+                className={`rounded border px-3 py-2 space-y-1 ${st.border}`}
+              >
+                {/* top row: urgency badge + side icon + main label */}
+                <div className="flex items-start gap-2">
+                  <span className={`mt-0.5 inline-flex items-center gap-1 shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded ${st.badge}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${st.dot} inline-block`} />
+                    {st.label}
+                  </span>
+                  <span className={`text-[12px] font-semibold leading-snug ${sideCol}`}>
+                    {sideIcon} {s.label}
+                  </span>
+                </div>
+                {/* sub-line */}
+                <div className="text-[11px] text-gray-400 leading-snug pl-8">{s.sub}</div>
+                {/* stats row */}
+                <div className="flex items-center gap-3 pl-8 text-[10px] text-gray-500 font-mono">
+                  <span>Qty <span className="text-gray-300">{fmtK(s.qty)}</span></span>
+                  <span>Dist <span className="text-gray-300">{fmtNum(s.distAbs, s.distAbs > 1 ? 1 : 4)}</span></span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* no-wall states */}
+      {signals.length > 0 && signals.filter(s => s.urgency === 'high').length === 0 && (
+        <div className="mt-3 pt-2 border-t border-white/5 text-[11px] text-gray-500">
+          ℹ️ No high-urgency walls within 0.3% of mid price.
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 
 type LayoutMode = 'top-bottom' | 'left-right';
 
@@ -660,6 +803,13 @@ export default function HeatmapTerminal() {
               <div className="text-sm text-gray-500">No significant walls detected</div>
             )}
           </div>
+
+          {/* Liquidity Wall Analysis */}
+          <WallAnalysisPanel
+            bidWalls={d?.bidWalls ?? []}
+            askWalls={d?.askWalls ?? []}
+            mid={d?.mid ?? null}
+          />
 
           {/* Microstructure summary */}
           <div className="bg-terminal-panel border border-terminal-border rounded-lg p-4 space-y-2">
