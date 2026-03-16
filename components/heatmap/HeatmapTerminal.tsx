@@ -2290,6 +2290,52 @@ export default function HeatmapTerminal() {
                   mid={d.mid}
                 />
               </div>
+
+              {/* ── Microstructure ── */}
+              <div className="border-t border-terminal-border px-4 py-3">
+                <div className="text-[11px] font-semibold text-terminal-accent mb-2">Microstructure</div>
+                <div className="space-y-0.5 text-xs font-mono">
+                  {[
+                    { label: 'Best Bid',  value: fmtNum(d.bestBid, 4),  col: 'text-emerald-300' },
+                    { label: 'Best Ask',  value: fmtNum(d.bestAsk, 4),  col: 'text-red-300' },
+                    { label: 'Spread',    value: d.spread != null ? fmtNum(d.spread, 4) : '—', col: 'text-yellow-300' },
+                    {
+                      label: 'Spread %',
+                      value: d.spread != null && d.mid ? `${((d.spread / d.mid) * 100).toFixed(4)}%` : '—',
+                      col: 'text-gray-300',
+                    },
+                    { label: 'Max Level $', value: `$${fmtK(d.maxNotional)}`, col: 'text-purple-300' },
+                  ].map(({ label, value, col }) => (
+                    <div key={label} className="flex justify-between py-0.5 border-b border-white/5">
+                      <span className="text-gray-500">{label}</span>
+                      <span className={col}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Spread Analysis ── */}
+              <div className="border-t border-terminal-border px-2 pb-2">
+                <SpreadAnalysisPanel
+                  spread={d.spread ?? null}
+                  spreadPct={d.spread != null && d.mid ? (d.spread / d.mid) * 100 : null}
+                  bestBid={d.bestBid ?? null}
+                  bestAsk={d.bestAsk ?? null}
+                />
+              </div>
+
+              {/* ── Short-Term Bias ── */}
+              <div className="border-t border-terminal-border px-2 pb-2">
+                <ShortTermBiasPanel
+                  pressure={d.pressure}
+                  bidWalls={d.bidWalls}
+                  askWalls={d.askWalls}
+                  mid={d.mid}
+                  spreadPct={d.spread != null && d.mid ? (d.spread / d.mid) * 100 : null}
+                  bidDepth={mergedBidDepth}
+                  askDepth={mergedAskDepth}
+                />
+              </div>
             </>
           )}
         </div>
@@ -2374,75 +2420,30 @@ export default function HeatmapTerminal() {
             mid={d?.mid ?? null}
           />
 
-          {/* Microstructure summary */}
-          <div className="bg-terminal-panel border border-terminal-border rounded-lg p-4 space-y-2">
-            <div className="text-xs font-semibold text-terminal-accent">Microstructure</div>
-            {d ? (
-              <div className="space-y-1 text-xs font-mono">
-                {[
-                  { label: 'Best Bid', value: fmtNum(d.bestBid, 4), col: 'text-emerald-300' },
-                  { label: 'Best Ask', value: fmtNum(d.bestAsk, 4), col: 'text-red-300' },
-                  { label: 'Spread', value: d.spread != null ? fmtNum(d.spread, 4) : '—', col: 'text-yellow-300' },
-                  {
-                    label: 'Spread %',
-                    value: d.spread != null && d.mid ? `${((d.spread / d.mid) * 100).toFixed(4)}%` : '—',
-                    col: 'text-gray-300',
-                  },
-                  { label: 'Max Level $', value: `$${fmtK(d.maxNotional)}`, col: 'text-purple-300' },
-                ].map(({ label, value, col }) => (
-                  <div key={label} className="flex justify-between py-0.5 border-b border-white/5">
-                    <span className="text-gray-500">{label}</span>
-                    <span className={col}>{value}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-sm text-gray-500">—</div>
-            )}
-          </div>
-
-          {/* Spread Analysis */}
-          <SpreadAnalysisPanel
-            spread={d?.spread ?? null}
-            spreadPct={d?.spread != null && d?.mid ? (d.spread / d.mid) * 100 : null}
-            bestBid={d?.bestBid ?? null}
-            bestAsk={d?.bestAsk ?? null}
-          />
-
-          {/* Short-Term Bias */}
-          <ShortTermBiasPanel
-            pressure={d?.pressure}
-            bidWalls={d?.bidWalls ?? []}
-            askWalls={d?.askWalls ?? []}
-            mid={d?.mid ?? null}
-            spreadPct={d?.spread != null && d?.mid ? (d.spread / d.mid) * 100 : null}
-            bidDepth={mergedBidDepth}
-            askDepth={mergedAskDepth}
-          />
-
           {/* Legend */}
-          <div className="bg-terminal-panel border border-terminal-border rounded-lg p-3 text-[11px] text-gray-500 space-y-1">
-            <div className="text-xs font-semibold text-gray-400 mb-1">Legend</div>
+          <div className="bg-terminal-panel border border-terminal-border rounded-lg p-4 text-[11px] text-gray-500 space-y-1.5">
+            <div className="text-xs font-semibold text-terminal-accent mb-2">Legend</div>
             <div className="flex items-center gap-2">
-              <span className="inline-block w-4 h-3 rounded" style={{ background: 'rgba(16,185,129,0.5)' }} />
+              <span className="inline-block w-4 h-3 rounded shrink-0" style={{ background: 'rgba(16,185,129,0.5)' }} />
               <span>Bid liquidity (green = heavier)</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-block w-4 h-3 rounded" style={{ background: 'rgba(239,68,68,0.5)' }} />
+              <span className="inline-block w-4 h-3 rounded shrink-0" style={{ background: 'rgba(239,68,68,0.5)' }} />
               <span>Ask liquidity (red = heavier)</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-block px-1 text-[9px] bg-emerald-500/30 text-emerald-300 rounded font-bold">WALL</span>
+              <span className="inline-block px-1 text-[9px] bg-emerald-500/30 text-emerald-300 rounded font-bold shrink-0">WALL</span>
               <span>Notional &gt;2.5× avg of top-20</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-yellow-300 font-bold">Mid</span>
+              <span className="text-yellow-300 font-bold shrink-0">Mid</span>
               <span>= (bestBid + bestAsk) / 2</span>
             </div>
-            <div className="mt-2 pt-2 border-t border-white/5">
+            <div className="mt-2 pt-2 border-t border-white/5 text-[10px]">
               WS stream: <span className="text-gray-300">fstream.binance.com @depth 500ms</span>
             </div>
           </div>
+
         </div>
       </div>
     </div>
