@@ -35,6 +35,21 @@ A professional cryptocurrency trading dashboard inspired by Bloomberg Terminal, 
 - **Keyboard Navigation**: Hotkeys for quick module switching (Alt+1, Alt+2, etc.)
 - **Smooth Animations**: Marquee effects for tickers and transitions
 
+### 🔥 Orderbook Heatmap (Live)
+- **Interactive orderbook heatmap** for visualizing liquidity, bid/ask walls, and depth intensity
+- **Cumulative Depth Chart** + **Volume Distribution** visualization
+- **Support/Resistance Zones** detection
+- **Orderbook Velocity** + microstructure summaries (spread/imbalance/short-term bias)
+- **Spoofing-style alerts** (heuristics) and **data feed disconnected** warning with retry
+- **Binance-only symbol list**: symbol metadata (BASE/QUOTE) is loaded directly from Binance exchangeInfo
+
+### 🧱 Layer1 (L1) Terminal
+- **Multi-panel** L1-style view (4 or 6 panels)
+- **Orderbook snapshots** (depth ladder preview, mid + spread)
+- **Microstructure** metrics (CVD/delta, flow speed, volatility/spread meters, imbalance)
+- **Whale wall** detection + recent wall logs
+- **Layout persistence** via `localStorage` (`qt_layer1_layout_v1`)
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -129,6 +144,39 @@ npm start
   - Mempool.space (Bitcoin fees)
   - Blockchain.com (Bitcoin stats)
   - DeFi Llama (TVL data)
+   - Binance (orderbook heatmap + symbol metadata)
+
+## 🧭 Modules
+
+### Heatmap Terminal
+Open: `/heatmap`
+
+The heatmap uses a **futures-first** approach where possible:
+- REST snapshots prefer Binance Futures and fall back to Spot.
+- WebSocket depth stream also prefers Futures and falls back to Spot.
+
+Symbol search/autocomplete is powered by a cached API route:
+- `GET /api/binance-symbols` (futures exchangeInfo, fallback to spot; cached ~1 hour)
+
+### Layer1 (L1) Terminal
+Open: `/layer1`
+
+`components/layer1/Layer1Terminal.tsx` is a multi-panel **Level-1 style** terminal focused on quick microstructure reads across several symbols at once.
+
+Key capabilities:
+- **Multi-panel layout** (4 or 6 panels) with per-panel symbol + depth settings
+- **Orderbook snapshot panels** (best bid/ask ladder preview, mid + spread)
+- **Microstructure metrics** (CVD/delta, flow speed, volatility/spread meters, imbalance)
+- **Whale wall detection** + recent whale wall logs
+- Layout persisted in `localStorage` (`qt_layer1_layout_v1`)
+
+Backend endpoints used by L1:
+- `GET /api/layer1/symbols`
+- `GET /api/layer1/orderbook?symbol=...&exchange=...&depth=...`
+- `GET /api/layer1/microstructure?symbol=...&exchange=...`
+- `GET /api/layer1/orderflow?symbol=...&exchange=...`
+- `GET /api/layer1/whale-walls?symbol=...&exchange=...`
+- `GET /api/layer1/metrics?symbol=...&exchange=...`
 
 ## 📁 Project Structure
 
@@ -184,6 +232,7 @@ Data provided by:
 - Mempool.space (Bitcoin network fees)
 - Blockchain.com (Bitcoin statistics)
 - DeFi Llama (Total Value Locked)
+- Binance (orderbook snapshots/stream + trading symbol metadata)
 
 ## 🤝 Contributing
 
