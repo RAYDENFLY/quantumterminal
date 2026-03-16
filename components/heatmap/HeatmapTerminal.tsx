@@ -343,6 +343,491 @@ function DepthChart({
   );
 }
 
+// ─── Support / Resistance Zones ──────────────────────────────────────────────
+
+type SRZone = {
+  low: number;
+  high: number;
+  mid: number;
+  totalNotional: number;
+  wallCount: number;
+  side: 'support' | 'resistance';
+};
+
+function computeSRZones(
+  bidWalls: Wall[],
+  askWalls: Wall[],
+  mid: number | null,
+  tickPct = 0.002, // cluster walls within 0.2% of each other
+): { support: SRZone[]; resistance: SRZone[] } {
+  function cluster(walls: Wall[]): SRZone[] {
+    if (!walls.length) return [];
+    const sorted = [...walls].sort((a, b) => a.price - b.price);
+    const groups: Wall[][] = [];
+    let cur: Wall[] = [sorted[0]];
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = cur[cur.length - 1];
+      const ref = prev.price;
+      if ((sorted[i].price - ref) / (ref || 1) <= tickPct) {
+        cur.push(sorted[i]);
+      } else {
+        groups.push(cur);
+        cur = [sorted[i]];
+      }
+    }
+    groups.push(cur);
+    return groups.map((g) => {
+      const prices = g.map((w) => w.price);
+      const low = Math.min(...prices);
+      const high = Math.max(...prices);
+      const midP = (low + high) / 2;
+      const totalNotional = g.reduce((s, w) => s + w.notional, 0);
+      return { low, high, mid: midP, totalNotional, wallCount: g.length, side: 'support' as const };
+    });
+  }
+
+  const support = cluster(bidWalls)
+    .map((z) => ({ ...z, side: 'support' as const }))
+    .sort((a, b) => b.totalNotional - a.totalNotional)
+    .slice(0, 4);
+
+  const resistance = cluster(askWalls)
+    .map((z) => ({ ...z, side: 'resistance' as const }))
+    .sort((a, b) => b.totalNotional - a.totalNotional)
+    .slice(0, 4);
+
+  // Sort by proximity to mid
+  if (mid && mid > 0) {
+    support.sort((a, b) => Math.abs(a.mid - mid) - Math.abs(b.mid - mid));
+    resistance.sort((a, b) => Math.abs(a.mid - mid) - Math.abs(b.mid - mid));
+  }
+
+  return { support, resistance };
+}
+
+function SRZonesPanel({
+  bidWalls,
+  askWalls,
+  mid,
+}: {
+  bidWalls: Wall[];
+  askWalls: Wall[];
+  mid: number | null;
+}) {
+  const { support, resistance } = useMemo(
+    () => computeSRZones(bidWalls, askWalls, mid),
+    [bidWalls, askWalls, mid],
+  );
+
+  const prec = mid && mid > 100 ? 2 : 4;
+
+  const ZoneRow = ({
+    zone,
+  }: {
+    zone: SRZone;
+  }) => {
+    const isSupport = zone.side === 'support';
+    const distPct =
+      mid && mid > 0
+        ? (((zone.mid - mid) / mid) * 100).toFixed(2)
+        : null;
+    const col = isSupport ? 'text-emerald-300' : 'text-red-300';
+    const bg = isSupport
+      ? 'border-emerald-500/25 bg-emerald-500/8'
+      : 'border-red-500/25 bg-red-500/8';
+    return (
+      <div className={`rounded border px-2.5 py-2 space-y-0.5 ${bg}`}>
+        <div className="flex items-center justify-between">
+          <span className={`text-[10px] font-bold ${col}`}>
+            {isSupport ? '▼ Support' : '▲ Resistance'}
+          </span>
+          {distPct !== null && (
+            <span className="text-[10px] text-gray-500">
+              {Number(distPct) >= 0 ? '+' : ''}
+              {distPct}% from mid
+            </span>
+          )}
+        </div>
+        <div className={`text-[13px] font-mono font-semibold ${col}`}>
+          {fmtNum(zone.low, prec)} – {fmtNum(zone.high, prec)}
+        </div>
+        <div className="flex items-center gap-3 text-[10px] text-gray-500">
+          <span>${fmtK(zone.totalNotional)}</span>
+          {zone.wallCount > 1 && (
+            <span className={`px-1 rounded text-[9px] font-bold ${isSupport ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+              {zone.wallCount} walls
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const empty = support.length === 0 && resistance.length === 0;
+
+  return (
+    <div className="px-2 pb-4">
+      <div className="flex items-center gap-1.5 mb-2.5 px-2">
+        <span className="text-[11px] font-semibold text-terminal-accent">Support / Resistance Zones</span>
+        <span className="text-[10px] text-gray-600">— from liquidity walls</span>
+      </div>
+      {empty ? (
+        <div className="px-2 text-[11px] text-gray-500">No walls detected.</div>
+      ) : (
+        <div className="space-y-3 px-2">
+          {resistance.length > 0 && (
+            <div className="space-y-1.5">
+              {resistance.map((z, i) => (
+                <ZoneRow key={`res-${i}`} zone={z} />
+              ))}
+            </div>
+          )}
+          {support.length > 0 && resistance.length > 0 && (
+            <div className="border-t border-white/5 my-1" />
+          )}
+          {support.length > 0 && (
+            <div className="space-y-1.5">
+              {support.map((z, i) => (
+                <ZoneRow key={`sup-${i}`} zone={z} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Orderbook Velocity ───────────────────────────────────────────────────────
+
+type VelocitySnapshot = {
+  ts: number;
+  bidNotional: number;
+  askNotional: number;
+};
+
+type OBVelocity = {
+  bidChangePct: number | null;   // +/- % change in bid notional vs N seconds ago
+  askChangePct: number | null;
+  bidTrend: 'adding' | 'removing' | 'stable';
+  askTrend: 'adding' | 'removing' | 'stable';
+  windowSec: number;
+};
+
+const VELOCITY_WINDOW_MS = 10_000; // 10-second rolling window
+const VELOCITY_HISTORY = 20;       // keep up to 20 snapshots
+
+function useOBVelocity(bidDepth: Level[], askDepth: Level[]): OBVelocity {
+  const historyRef = useRef<VelocitySnapshot[]>([]);
+
+  const bidNotional = useMemo(
+    () => bidDepth.reduce((s, l) => s + l.notional, 0),
+    [bidDepth],
+  );
+  const askNotional = useMemo(
+    () => askDepth.reduce((s, l) => s + l.notional, 0),
+    [askDepth],
+  );
+
+  useEffect(() => {
+    const snap: VelocitySnapshot = { ts: Date.now(), bidNotional, askNotional };
+    historyRef.current = [...historyRef.current, snap].slice(-VELOCITY_HISTORY);
+  }, [bidNotional, askNotional]);
+
+  return useMemo(() => {
+    const history = historyRef.current;
+    if (history.length < 2) {
+      return { bidChangePct: null, askChangePct: null, bidTrend: 'stable', askTrend: 'stable', windowSec: VELOCITY_WINDOW_MS / 1000 };
+    }
+    const now = Date.now();
+    const cutoff = now - VELOCITY_WINDOW_MS;
+    // Find oldest snapshot inside the window
+    const old = history.find((s) => s.ts >= cutoff) ?? history[0];
+    const latest = history[history.length - 1];
+    const elapsed = (latest.ts - old.ts) / 1000;
+
+    const calc = (oldV: number, newV: number) => {
+      if (oldV === 0) return null;
+      return ((newV - oldV) / oldV) * 100;
+    };
+
+    const bidPct = calc(old.bidNotional, latest.bidNotional);
+    const askPct = calc(old.askNotional, latest.askNotional);
+
+    const classify = (pct: number | null): 'adding' | 'removing' | 'stable' => {
+      if (pct == null) return 'stable';
+      if (pct > 1.5) return 'adding';
+      if (pct < -1.5) return 'removing';
+      return 'stable';
+    };
+
+    return {
+      bidChangePct: bidPct,
+      askChangePct: askPct,
+      bidTrend: classify(bidPct),
+      askTrend: classify(askPct),
+      windowSec: Math.round(elapsed) || VELOCITY_WINDOW_MS / 1000,
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bidNotional, askNotional]);
+}
+
+function OBVelocityPanel({
+  bidDepth,
+  askDepth,
+}: {
+  bidDepth: Level[];
+  askDepth: Level[];
+}) {
+  const vel = useOBVelocity(bidDepth, askDepth);
+
+  const trendIcon = (t: 'adding' | 'removing' | 'stable') =>
+    t === 'adding' ? '▲' : t === 'removing' ? '▼' : '–';
+
+  const trendCol = (t: 'adding' | 'removing' | 'stable') =>
+    t === 'adding'
+      ? 'text-emerald-300'
+      : t === 'removing'
+      ? 'text-red-300'
+      : 'text-gray-400';
+
+  const fmtPct = (v: number | null) => {
+    if (v == null) return '—';
+    const sign = v >= 0 ? '+' : '';
+    return `${sign}${v.toFixed(1)}%`;
+  };
+
+  return (
+    <div className="px-2 pb-4">
+      <div className="flex items-center gap-1.5 mb-2.5 px-2">
+        <span className="text-[11px] font-semibold text-terminal-accent">Orderbook Velocity</span>
+        <span className="text-[10px] text-gray-600">— {vel.windowSec}s window</span>
+      </div>
+      <div className="px-2 space-y-2">
+        {/* Bid row */}
+        <div className="flex items-center justify-between rounded border border-emerald-500/20 bg-emerald-500/6 px-2.5 py-2">
+          <div className="space-y-0.5">
+            <div className="text-[10px] text-gray-500 uppercase tracking-wide">Bid Liquidity</div>
+            <div className="flex items-center gap-2">
+              <span className={`text-[13px] font-bold font-mono ${trendCol(vel.bidTrend)}`}>
+                {fmtPct(vel.bidChangePct)}
+              </span>
+              <span className={`text-[11px] font-semibold ${trendCol(vel.bidTrend)}`}>
+                {trendIcon(vel.bidTrend)} {vel.bidTrend === 'adding' ? 'Bid Additions' : vel.bidTrend === 'removing' ? 'Bid Removing' : 'Stable'}
+              </span>
+            </div>
+          </div>
+          <div className={`text-[22px] ${trendCol(vel.bidTrend)} opacity-60`}>
+            {trendIcon(vel.bidTrend)}
+          </div>
+        </div>
+
+        {/* Ask row */}
+        <div className="flex items-center justify-between rounded border border-red-500/20 bg-red-500/6 px-2.5 py-2">
+          <div className="space-y-0.5">
+            <div className="text-[10px] text-gray-500 uppercase tracking-wide">Ask Liquidity</div>
+            <div className="flex items-center gap-2">
+              <span className={`text-[13px] font-bold font-mono ${trendCol(vel.askTrend)}`}>
+                {fmtPct(vel.askChangePct)}
+              </span>
+              <span className={`text-[11px] font-semibold ${trendCol(vel.askTrend)}`}>
+                {trendIcon(vel.askTrend)} {vel.askTrend === 'adding' ? 'Ask Additions' : vel.askTrend === 'removing' ? 'Ask Removing' : 'Stable'}
+              </span>
+            </div>
+          </div>
+          <div className={`text-[22px] ${trendCol(vel.askTrend)} opacity-60`}>
+            {trendIcon(vel.askTrend)}
+          </div>
+        </div>
+
+        {/* Interpretation */}
+        <div className="text-[10px] text-gray-600 pt-0.5">
+          {vel.bidTrend === 'adding' && vel.askTrend !== 'adding' && (
+            <span className="text-emerald-500/70">Bids growing — buyers accumulating liquidity.</span>
+          )}
+          {vel.askTrend === 'adding' && vel.bidTrend !== 'adding' && (
+            <span className="text-red-500/70">Asks growing — sellers stacking supply.</span>
+          )}
+          {vel.bidTrend === 'removing' && vel.askTrend !== 'removing' && (
+            <span className="text-yellow-500/70">Bid walls pulling — possible sell-side move ahead.</span>
+          )}
+          {vel.askTrend === 'removing' && vel.bidTrend !== 'removing' && (
+            <span className="text-yellow-500/70">Ask walls pulling — possible buy-side move ahead.</span>
+          )}
+          {vel.bidTrend === vel.askTrend && vel.bidTrend === 'stable' && (
+            <span className="text-gray-500">Liquidity stable — no significant order flow changes.</span>
+          )}
+          {vel.bidTrend === 'adding' && vel.askTrend === 'adding' && (
+            <span className="text-sky-500/70">Both sides growing — market depth expanding.</span>
+          )}
+          {vel.bidTrend === 'removing' && vel.askTrend === 'removing' && (
+            <span className="text-orange-500/70">Both sides thinning — liquidity draining, volatility risk.</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Volume Distribution Chart ────────────────────────────────────────────────
+
+function VolumeDistributionChart({
+  bidDepth,
+  askDepth,
+  mid,
+}: {
+  bidDepth: Level[];
+  askDepth: Level[];
+  mid: number | null;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const W = canvas.offsetWidth;
+    const H = canvas.offsetHeight;
+    canvas.width = W;
+    canvas.height = H;
+    ctx.clearRect(0, 0, W, H);
+
+    // Merge all levels sorted by price ascending
+    const all: (Level & { side: 'bid' | 'ask' })[] = [
+      ...bidDepth.map((l) => ({ ...l, side: 'bid' as const })),
+      ...askDepth.map((l) => ({ ...l, side: 'ask' as const })),
+    ].sort((a, b) => a.price - b.price);
+
+    if (all.length < 2) return;
+
+    const PAD_L = 52, PAD_R = 12, PAD_T = 12, PAD_B = 30;
+    const chartW = W - PAD_L - PAD_R;
+    const chartH = H - PAD_T - PAD_B;
+
+    const minPrice = all[0].price;
+    const maxPrice = all[all.length - 1].price;
+    const maxNotional = Math.max(...all.map((l) => l.notional), 1);
+
+    // ── Grid ──
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = PAD_T + (chartH / 4) * i;
+      ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y); ctx.stroke();
+    }
+
+    // ── Bars ──
+    const BAR_GAP = 1;
+    const BAR_W = Math.max(2, chartW / all.length - BAR_GAP);
+
+    for (let i = 0; i < all.length; i++) {
+      const l = all[i];
+      const x = PAD_L + (i / (all.length - 1 || 1)) * chartW;
+      const barH = (l.notional / maxNotional) * chartH;
+      const y = PAD_T + chartH - barH;
+
+      const isBid = l.side === 'bid';
+      const isWallBid = isBid && l.notional > maxNotional * 0.4;
+      const isWallAsk = !isBid && l.notional > maxNotional * 0.4;
+
+      ctx.fillStyle = isBid
+        ? isWallBid
+          ? 'rgba(16,185,129,0.85)'
+          : 'rgba(16,185,129,0.45)'
+        : isWallAsk
+        ? 'rgba(239,68,68,0.85)'
+        : 'rgba(239,68,68,0.45)';
+
+      ctx.fillRect(x - BAR_W / 2, y, BAR_W, barH);
+    }
+
+    // ── Mid line ──
+    if (mid != null) {
+      const midX = PAD_L + ((mid - minPrice) / (maxPrice - minPrice || 1)) * chartW;
+      if (midX >= PAD_L && midX <= W - PAD_R) {
+        ctx.beginPath();
+        ctx.moveTo(midX, PAD_T);
+        ctx.lineTo(midX, PAD_T + chartH);
+        ctx.strokeStyle = 'rgba(250,204,21,0.65)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = 'rgba(250,204,21,0.8)';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('Mid', midX, PAD_T - 2);
+      }
+    }
+
+    // ── Y-axis labels ──
+    ctx.fillStyle = 'rgba(156,163,175,0.7)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= 4; i++) {
+      const val = (maxNotional / 4) * (4 - i);
+      const y = PAD_T + (chartH / 4) * i;
+      const label =
+        val >= 1_000_000 ? `${(val / 1_000_000).toFixed(1)}M` :
+        val >= 1_000     ? `${(val / 1_000).toFixed(0)}K`     : val.toFixed(0);
+      ctx.fillText(`$${label}`, PAD_L - 4, y + 3);
+    }
+
+    // ── X-axis: bid/ask zone labels ──
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(16,185,129,0.5)';
+    ctx.font = '9px monospace';
+    ctx.fillText('← Bids', PAD_L + 2, PAD_T + chartH + 18);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(239,68,68,0.5)';
+    ctx.fillText('Asks →', W - PAD_R - 2, PAD_T + chartH + 18);
+
+    // ── X price ticks ──
+    ctx.fillStyle = 'rgba(156,163,175,0.5)';
+    ctx.textAlign = 'center';
+    for (let i = 0; i <= 2; i++) {
+      const price = minPrice + ((maxPrice - minPrice) / 2) * i;
+      const x = PAD_L + ((price - minPrice) / (maxPrice - minPrice || 1)) * chartW;
+      const label = price >= 1000 ? price.toFixed(0) : price.toFixed(4);
+      ctx.fillText(label, x, PAD_T + chartH + 18);
+    }
+  }, [bidDepth, askDepth, mid]);
+
+  return (
+    <div className="px-2 pb-4 pt-1">
+      <div className="flex items-center justify-between mb-1.5 px-2">
+        <div className="text-[11px] font-semibold text-terminal-accent">Volume Distribution</div>
+        <div className="flex items-center gap-3 text-[10px]">
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-2.5 rounded-sm bg-emerald-500/60" />
+            <span className="text-gray-400">Bids</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-2.5 rounded-sm bg-red-500/60" />
+            <span className="text-gray-400">Asks</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2.5 rounded-sm bg-emerald-400" />
+            <span className="inline-block w-2 h-2.5 rounded-sm bg-red-400 ml-0.5" />
+            <span className="text-gray-400">Walls</span>
+          </span>
+        </div>
+      </div>
+      <canvas
+        ref={canvasRef}
+        className="w-full rounded"
+        style={{ height: 160, display: 'block' }}
+      />
+      <div className="text-[10px] text-gray-600 px-2 pt-1.5">
+        Each bar = one price level. Brighter bars = liquidity walls (≥40% of peak notional).
+      </div>
+    </div>
+  );
+}
+
 // ─── Heatmap rows ─────────────────────────────────────────────────────────────
 
 function HeatmapRows({
@@ -1777,6 +2262,32 @@ export default function HeatmapTerminal() {
                   mid={d.mid}
                   bidWalls={showWalls ? d.bidWalls : []}
                   askWalls={showWalls ? d.askWalls : []}
+                />
+              </div>
+
+              {/* ── Support / Resistance Zones ── */}
+              <div className="border-t border-terminal-border mt-1">
+                <SRZonesPanel
+                  bidWalls={d.bidWalls}
+                  askWalls={d.askWalls}
+                  mid={d.mid}
+                />
+              </div>
+
+              {/* ── Orderbook Velocity ── */}
+              <div className="border-t border-terminal-border">
+                <OBVelocityPanel
+                  bidDepth={mergedBidDepth}
+                  askDepth={mergedAskDepth}
+                />
+              </div>
+
+              {/* ── Volume Distribution ── */}
+              <div className="border-t border-terminal-border">
+                <VolumeDistributionChart
+                  bidDepth={mergedBidDepth}
+                  askDepth={mergedAskDepth}
+                  mid={d.mid}
                 />
               </div>
             </>
