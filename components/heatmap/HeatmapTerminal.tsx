@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import useSWR from 'swr';
+import HowToUseModal from './HowToUseModal';
+import DisconnectedAlert from './DisconnectedAlert';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,12 +55,9 @@ type ApiRes = { success: boolean; data?: HeatmapData; error?: string };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const COMMON_PAIRS = [
-  'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
-  'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'NEARUSDT',
-  'INJUSDT', 'SUIUSDT', 'OPUSDT', 'ARBUSDT', 'PEPEUSDT',
-  'WIFUSDT', 'TIAUSDT', 'SEIUSDT', 'ATOMUSDT', 'LTCUSDT',
-];
+// Symbol list is fetched from Binance (futures-first fallback to spot).
+// We keep this here as a minimal fallback so the input isn't empty during first paint.
+const COMMON_PAIRS = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT'];
 
 const ROW_H = 22; // px per price-level row
 const MAX_ROWS = 40; // rows to show each side
@@ -78,6 +77,19 @@ function fmtK(v: number | null | undefined) {
   if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
   return v.toFixed(2);
 }
+
+type BinanceSymbol = {
+  symbol: string;
+  baseAsset: string;
+  quoteAsset: string;
+};
+
+type BinanceSymbolsRes = {
+  success: boolean;
+  source?: 'futures' | 'spot';
+  symbols?: BinanceSymbol[];
+  error?: string;
+};
 
 function notionalToRgb(notional: number, max: number, side: 'bid' | 'ask', intensity = 1): string {
   if (!max) return 'transparent';
@@ -1856,7 +1868,7 @@ function computeBias({
   takerBuyPct,
 }: {
   pressureRatio: number | null;
-  pressureSide: 'BUY' | 'SELL' | 'NEUTRAL' | null;
+  pressureSide:  'BUY' | 'SELL' | 'NEUTRAL' | null;
   imbalanceTier: 'strong-bull' | 'bull' | 'balanced' | 'bear' | 'strong-bear' | null;
   bidWalls: Wall[];
   askWalls: Wall[];
@@ -2039,9 +2051,13 @@ export default function HeatmapTerminal() {
   const [liveEnabled, setLiveEnabled] = useState(true);
   const [showWalls, setShowWalls] = useState(true);
   const [layout, setLayout] = useState<LayoutMode>('top-bottom');
+  const [howToOpen, setHowToOpen] = useState(false);
+  const [symOpen, setSymOpen] = useState(false);
+  const [symHi, setSymHi] = useState(0);
+  const symWrapRef = useRef<HTMLDivElement>(null);
 
   const qs = new URLSearchParams({ symbol });
-  const { data: apiRes, isLoading } = useSWR<ApiRes>(
+  const { data: apiRes, isLoading, mutate } = useSWR<ApiRes>(
     `/api/heatmap?${qs}`,
     fetcher,
     { refreshInterval: 4000, revalidateOnFocus: false }
@@ -2049,6 +2065,40 @@ export default function HeatmapTerminal() {
 
   const ok = apiRes?.success === true;
   const d = ok ? apiRes!.data! : null;
+
+  // Binance symbol list (for the autocomplete dropdown)
+  const { data: symRes } = useSWR<BinanceSymbolsRes>(
+    '/api/binance-symbols',
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60 * 60 * 1000 }
+  );
+
+  const allSymbols = (symRes?.success && symRes.symbols?.length)
+    ? symRes.symbols
+    : COMMON_PAIRS.map((s) => ({ symbol: s, baseAsset: s.replace('USDT', ''), quoteAsset: 'USDT' }));
+
+  const filteredSymbols = useMemo(() => {
+    const q = symbolInput.trim().toUpperCase();
+    if (!q) return allSymbols.slice(0, 30);
+
+    // Match by symbol or baseAsset; keep list short.
+    const starts: BinanceSymbol[] = [];
+    const contains: BinanceSymbol[] = [];
+    for (const s of allSymbols) {
+      const sym = s.symbol.toUpperCase();
+      const base = s.baseAsset.toUpperCase();
+      if (sym.startsWith(q) || base.startsWith(q)) starts.push(s);
+      else if (sym.includes(q) || base.includes(q)) contains.push(s);
+      if (starts.length >= 20 && contains.length >= 20) break;
+    }
+    return [...starts, ...contains].slice(0, 30);
+  }, [allSymbols, symbolInput]);
+
+  // "Disconnected" heuristics: no successful data, plus not currently fetching.
+  // Notes:
+  // - apiRes can be undefined on first load.
+  // - apiRes.success=false gets treated as feed down only if we also have an error message.
+  const feedDisconnected = !isLoading && (!apiRes || apiRes.success !== true);
 
   // WebSocket live orderbook delta
   const liveOB = useLiveOB(symbol, liveEnabled);
@@ -2110,6 +2160,25 @@ export default function HeatmapTerminal() {
     if (s && /^[A-Z0-9]{2,20}$/.test(s)) setSymbol(s);
   }
 
+  const applyFromSuggestion = useCallback((s: string) => {
+    const up = s.toUpperCase();
+    setSymbolInput(up);
+    setSymbol(up);
+    setSymOpen(false);
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!symOpen) return;
+      const el = symWrapRef.current;
+      if (!el) return;
+      if (!el.contains(e.target as Node)) setSymOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [symOpen]);
+
   const pressure = d?.pressure;
   const pSide = pressure?.pressureSide;
 
@@ -2128,18 +2197,81 @@ export default function HeatmapTerminal() {
 
           {/* Symbol selector */}
           <div className="flex items-center gap-2 flex-wrap">
-            <input
-              list="hm-pairs"
-              value={symbolInput}
-              onChange={(e) => setSymbolInput(e.target.value.toUpperCase())}
-              onKeyDown={(e) => e.key === 'Enter' && applySymbol()}
-              className="bg-terminal-bg border border-terminal-border rounded px-3 py-1.5 text-sm text-terminal-text w-36 focus:outline-none focus:border-terminal-accent"
-              placeholder="Symbol"
-              spellCheck={false}
-            />
-            <datalist id="hm-pairs">
-              {COMMON_PAIRS.map((p) => <option key={p} value={p} />)}
-            </datalist>
+            <button
+              onClick={() => setHowToOpen(true)}
+              className="px-3 py-1.5 rounded text-xs border border-sky-500/30 bg-sky-500/10 text-sky-300 font-semibold hover:bg-sky-500/15"
+              title="How to use / Cara penggunaan"
+            >
+              How to use
+            </button>
+            <div ref={symWrapRef} className="relative">
+              <input
+                value={symbolInput}
+                onChange={(e) => {
+                  setSymbolInput(e.target.value.toUpperCase());
+                  setSymOpen(true);
+                  setSymHi(0);
+                }}
+                onFocus={() => setSymOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (symOpen && filteredSymbols[symHi]) {
+                      applyFromSuggestion(filteredSymbols[symHi].symbol);
+                    } else {
+                      applySymbol();
+                    }
+                  }
+                  if (e.key === 'Escape') setSymOpen(false);
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setSymOpen(true);
+                    setSymHi((v) => Math.min(v + 1, Math.max(0, filteredSymbols.length - 1)));
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setSymOpen(true);
+                    setSymHi((v) => Math.max(0, v - 1));
+                  }
+                }}
+                className="bg-terminal-bg border border-terminal-border rounded px-3 py-1.5 text-sm text-terminal-text w-44 focus:outline-none focus:border-terminal-accent"
+                placeholder="Symbol (e.g. BTCUSDT)"
+                spellCheck={false}
+                autoComplete="off"
+              />
+
+              {symOpen && filteredSymbols.length > 0 && (
+                <div className="absolute left-0 right-0 mt-1 z-20 rounded-lg border border-terminal-border bg-terminal-panel shadow-lg overflow-hidden">
+                  <div className="max-h-72 overflow-y-auto">
+                    {filteredSymbols.map((s, idx) => {
+                      const active = idx === symHi;
+                      return (
+                        <button
+                          key={s.symbol}
+                          type="button"
+                          onMouseEnter={() => setSymHi(idx)}
+                          onMouseDown={(e) => e.preventDefault()} // keep focus
+                          onClick={() => applyFromSuggestion(s.symbol)}
+                          className={`w-full text-left px-3 py-2 flex items-center justify-between gap-3 text-xs font-mono border-b border-white/5 ${
+                            active ? 'bg-terminal-bg' : 'hover:bg-terminal-bg/60'
+                          }`}
+                        >
+                          <span className="text-gray-200 font-semibold">{s.symbol}</span>
+                          <span className="text-gray-500">{s.baseAsset}/{s.quoteAsset}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="px-3 py-1.5 text-[10px] text-gray-600 flex items-center justify-between">
+                    <span>
+                      Source: <span className="text-gray-400">{symRes?.source ?? 'fallback'}</span>
+                    </span>
+                    {symRes?.success === false && (
+                      <span className="text-yellow-400/70">{symRes.error ?? 'Symbol feed error'}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <button
               onClick={applySymbol}
               className="px-3 py-1.5 rounded text-xs bg-terminal-accent text-black font-semibold hover:bg-terminal-accent/80"
@@ -2243,6 +2375,21 @@ export default function HeatmapTerminal() {
               {apiRes?.error ?? 'No data. Check symbol or try again.'}
             </div>
           )}
+
+          {/* Disconnected alert */}
+          <div className="px-4 pt-3">
+            <DisconnectedAlert show={feedDisconnected} />
+            {feedDisconnected && (
+              <div className="pt-2">
+                <button
+                  onClick={() => mutate()}
+                  className="px-3 py-1.5 rounded text-xs border border-terminal-border bg-terminal-bg text-gray-300 hover:bg-white/5"
+                >
+                  Try Again
+                </button>
+              </div>
+            )}
+          </div>
 
           {ok && d && (
             <>
@@ -2446,6 +2593,9 @@ export default function HeatmapTerminal() {
 
         </div>
       </div>
+
+  {/* How-to modal */}
+  <HowToUseModal open={howToOpen} onClose={() => setHowToOpen(false)} />
     </div>
   );
 }
