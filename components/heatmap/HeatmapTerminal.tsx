@@ -629,6 +629,147 @@ function OBImbalancePanel({ bidDepth, askDepth }: {
   );
 }
 
+// ─── Liquidity Cluster Detection ─────────────────────────────────────────────
+
+type LiquidityCluster = {
+  side: 'bid' | 'ask';
+  priceMin: number;
+  priceMax: number;
+  totalNotional: number;
+  totalQty: number;
+  levelCount: number;
+  role: string;   // e.g. "support area" or "resistance zone"
+};
+
+function computeClusters(bidDepth: Level[], askDepth: Level[], topN = 5): LiquidityCluster[] {
+  const clusters: LiquidityCluster[] = [];
+
+  function buildCluster(levels: Level[], side: 'bid' | 'ask'): LiquidityCluster | null {
+    if (!levels.length) return null;
+    // pick top-N by notional
+    const top = [...levels].sort((a, b) => b.notional - a.notional).slice(0, topN);
+    // sort by price to find contiguous price range
+    top.sort((a, b) => a.price - b.price);
+    const prices = top.map((l) => l.price);
+    const totalNotional = top.reduce((s, l) => s + l.notional, 0);
+    const totalQty = top.reduce((s, l) => s + l.qty, 0);
+    return {
+      side,
+      priceMin: Math.min(...prices),
+      priceMax: Math.max(...prices),
+      totalNotional,
+      totalQty,
+      levelCount: top.length,
+      role: side === 'bid' ? 'support area' : 'resistance zone',
+    };
+  }
+
+  const bidCluster = buildCluster(bidDepth, 'bid');
+  const askCluster = buildCluster(askDepth, 'ask');
+  if (bidCluster) clusters.push(bidCluster);
+  if (askCluster) clusters.push(askCluster);
+  return clusters;
+}
+
+function LiquidityClusterPanel({
+  bidDepth,
+  askDepth,
+  mid,
+}: {
+  bidDepth: Level[];
+  askDepth: Level[];
+  mid: number | null;
+}) {
+  const clusters = computeClusters(bidDepth, askDepth, 5);
+
+  return (
+    <div className="bg-terminal-panel border border-terminal-border rounded-lg p-4 space-y-3">
+      {/* header */}
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-semibold text-terminal-accent">Liquidity Cluster Detection</div>
+        <span className="text-[10px] text-gray-500">Top-5 levels</span>
+      </div>
+
+      {clusters.length === 0 ? (
+        <div className="text-xs text-gray-500">Insufficient depth data.</div>
+      ) : (
+        <div className="space-y-2">
+          {clusters.map((c, i) => {
+            const isBid = c.side === 'bid';
+            const borderCol = isBid
+              ? 'border-emerald-500/30 bg-emerald-500/5'
+              : 'border-red-500/30 bg-red-500/5';
+            const priceCol  = isBid ? 'text-emerald-300' : 'text-red-300';
+            const badgeCol  = isBid
+              ? 'bg-emerald-500/20 text-emerald-300'
+              : 'bg-red-500/20 text-red-300';
+            const sideLabel = isBid ? '▼ BID CLUSTER' : '▲ ASK CLUSTER';
+
+            // distance from mid
+            const distLine = mid
+              ? (() => {
+                  const centre = (c.priceMin + c.priceMax) / 2;
+                  const distPct = (Math.abs(centre - mid) / mid) * 100;
+                  return `${distPct.toFixed(2)}% from mid`;
+                })()
+              : null;
+
+            const sameLine = Math.abs(c.priceMax - c.priceMin) < 1e-8;
+
+            return (
+              <div key={i} className={`rounded border px-3 py-2.5 space-y-1.5 ${borderCol}`}>
+                {/* badge row */}
+                <div className="flex items-center justify-between">
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeCol}`}>
+                    {sideLabel}
+                  </span>
+                  {distLine && (
+                    <span className="text-[10px] text-gray-500">{distLine}</span>
+                  )}
+                </div>
+
+                {/* headline */}
+                <div className={`text-[12px] font-semibold leading-snug ${priceCol}`}>
+                  Liquidity cluster detected
+                  {sameLine
+                    ? <> at <span className="font-mono">{fmtNum(c.priceMin, c.priceMin > 100 ? 2 : 6)}</span></>
+                    : <> between{' '}
+                        <span className="font-mono">{fmtNum(c.priceMin, c.priceMin > 100 ? 2 : 6)}</span>
+                        {' – '}
+                        <span className="font-mono">{fmtNum(c.priceMax, c.priceMax > 100 ? 2 : 6)}</span>
+                      </>
+                  }
+                </div>
+
+                {/* interpretation */}
+                <div className="text-[11px] text-gray-300">
+                  This zone may act as a <span className={`font-semibold ${priceCol}`}>{c.role}</span>.
+                </div>
+
+                {/* stats */}
+                <div className="flex items-center gap-4 text-[10px] text-gray-500 font-mono pt-0.5">
+                  <span>
+                    Notional{' '}
+                    <span className="text-gray-300 font-semibold">${fmtK(c.totalNotional)}</span>
+                  </span>
+                  <span>
+                    Qty{' '}
+                    <span className="text-gray-300 font-semibold">{fmtK(c.totalQty)}</span>
+                  </span>
+                  <span>
+                    Levels{' '}
+                    <span className="text-gray-300 font-semibold">{c.levelCount}</span>
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function WallAnalysisPanel({ bidWalls, askWalls, mid }: {
   bidWalls: Wall[];
   askWalls: Wall[];
@@ -983,6 +1124,13 @@ export default function HeatmapTerminal() {
           <OBImbalancePanel
             bidDepth={mergedBidDepth}
             askDepth={mergedAskDepth}
+          />
+
+          {/* Liquidity Cluster Detection */}
+          <LiquidityClusterPanel
+            bidDepth={mergedBidDepth}
+            askDepth={mergedAskDepth}
+            mid={d?.mid ?? null}
           />
 
           {/* Liquidity Wall Analysis */}
