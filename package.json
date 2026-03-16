@@ -14,7 +14,7 @@
     "blockchain",
     "nextjs"
   ],
-  "author": "",
+  "author": "raydenfly",
   "license": "MIT",
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.1.0",
