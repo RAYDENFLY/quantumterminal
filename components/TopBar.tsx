@@ -17,7 +17,8 @@ import {
   faCodeBranch,
   faHandHoldingDollar,
   faUsers,
-  faUser
+  faUser,
+  faFire,
 } from '@fortawesome/free-solid-svg-icons';
 import useSWR from 'swr';
 import packageJson from '../package.json';
@@ -58,6 +59,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
     { key: 'Alt+5', action: () => goToModule('learning') },
     { key: 'Alt+6', action: () => goToModule('submissions') },
   { key: 'Alt+7', action: () => router.push('/layer1') },
+  { key: 'Alt+8', action: () => router.push('/heatmap') },
   ]);
 
   const { data: meData, mutate: mutateMe } = useSWR('/api/auth/me', fetcher);
@@ -109,6 +111,7 @@ export default function TopBar({ activeModule, setActiveModule }: TopBarProps) {
     { id: 'learning', label: 'Learning', icon: faGraduationCap, hotkey: 'ALT+5' },
     { id: 'submissions', label: 'Submissions', icon: faList, hotkey: 'ALT+6' },
   { id: 'layer1', label: 'Layer 1', icon: faLayerGroup, hotkey: 'ALT+7', href: '/layer1' },
+  { id: 'heatmap', label: 'Liquidity Heatmap', icon: faFire, hotkey: 'ALT+8', href: '/heatmap' },
   ];
 
   return (
