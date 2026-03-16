@@ -1137,21 +1137,15 @@ function useSpoofingDetector(
     check(bidDepth, 'bid');
     check(askDepth, 'ask');
 
-    if (newAlerts.length > 0) {
-      setAlerts((prev) => {
-        // merge: deduplicate by id, keep latest, cap at max
-        const map = new Map(prev.map((a) => [a.id, a]));
-        for (const a of newAlerts) map.set(a.id, a);
-        return Array.from(map.values())
-          .sort((a, b) => b.detectedAt - a.detectedAt)
-          .slice(0, SPOOF_MAX_ALERTS);
-      });
-    }
-
-    // Expire old alerts after 30s
-    setAlerts((prev) =>
-      prev.filter((a) => now - a.detectedAt < 30_000)
-    );
+    // Merge new alerts + expire old ones in a single setState
+    setAlerts((prev) => {
+      const map = new Map(prev.map((a) => [a.id, a]));
+      for (const a of newAlerts) map.set(a.id, a);
+      return Array.from(map.values())
+        .filter((a) => now - a.detectedAt < 30_000)
+        .sort((a, b) => b.detectedAt - a.detectedAt)
+        .slice(0, SPOOF_MAX_ALERTS);
+    });
   }, [bidDepth, askDepth]);
 
   return alerts;
@@ -1576,7 +1570,7 @@ export default function HeatmapTerminal() {
   const wsConnected = liveOB.lastUpdate > 0 && Date.now() - liveOB.lastUpdate < 3000;
 
   // Merge REST snapshot with WS delta for heatmap display
-  const mergedBidDepth: Level[] = (() => {
+  const mergedBidDepth = useMemo<Level[]>(() => {
     if (!d) return [];
     if (!liveEnabled || !wsConnected) return d.bidDepth;
 
@@ -1595,9 +1589,10 @@ export default function HeatmapTerminal() {
       cum += qty;
       return { price, qty, notional: price * qty, cumQty: cum, side: 'bid' as const };
     });
-  })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d, liveEnabled, wsConnected, liveOB.bids, liveOB.lastUpdate]);
 
-  const mergedAskDepth: Level[] = (() => {
+  const mergedAskDepth = useMemo<Level[]>(() => {
     if (!d) return [];
     if (!liveEnabled || !wsConnected) return d.askDepth;
 
@@ -1616,7 +1611,8 @@ export default function HeatmapTerminal() {
       cum += qty;
       return { price, qty, notional: price * qty, cumQty: cum, side: 'ask' as const };
     });
-  })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d, liveEnabled, wsConnected, liveOB.asks, liveOB.lastUpdate]);
 
   const maxNotional = Math.max(
     ...mergedBidDepth.map((l) => l.notional),
