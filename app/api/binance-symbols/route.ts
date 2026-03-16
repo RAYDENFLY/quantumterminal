@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
-export const revalidate = 60 * 60; // 1 hour (Next.js route segment cache)
+// NOTE: Next.js route segment config exports must be statically analyzable.
+// Keep this as a literal number to satisfy Vercel/Next build.
+export const revalidate = 3600; // 1 hour (Next.js route segment cache)
 
 type ExchangeInfoSpot = {
   symbols: Array<{ symbol: string; status: string; baseAsset: string; quoteAsset: string }>;
@@ -13,7 +15,7 @@ type ExchangeInfoFutures = {
 async function safeFetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, {
     // edge/server cache (plus revalidate above)
-    next: { revalidate },
+  next: { revalidate: 3600 },
     headers: {
       'accept': 'application/json',
       'user-agent': 'QuantumTerminal/heatmap',
