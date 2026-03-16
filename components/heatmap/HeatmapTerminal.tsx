@@ -155,6 +155,7 @@ function HeatmapRows({
   mid,
   bidWalls,
   askWalls,
+  layoutMode = 'top-bottom',
 }: {
   bidDepth: Level[];
   askDepth: Level[];
@@ -162,6 +163,7 @@ function HeatmapRows({
   mid: number | null;
   bidWalls: Wall[];
   askWalls: Wall[];
+  layoutMode?: 'top-bottom' | 'left-right';
 }) {
   const bidWallPrices = new Set(bidWalls.map((w) => w.price));
   const askWallPrices = new Set(askWalls.map((w) => w.price));
@@ -221,35 +223,67 @@ function HeatmapRows({
 
   return (
     <div className="flex-1 min-h-0 overflow-hidden flex flex-col select-none">
-      {/* header */}
+      {/* column header */}
       <div className="flex items-center px-2 py-1 text-[10px] text-gray-500 border-b border-terminal-border">
         <span className="flex-1">Price</span>
         <span className="w-20 text-right">Qty</span>
         <span className="w-24 text-right">Notional</span>
       </div>
 
-      {/* asks (red, top) */}
-      <div className="overflow-y-auto" style={{ maxHeight: MAX_ROWS * ROW_H }}>
-        {asks.map((l, i) => (
-          <Row key={`ask-${i}`} level={{ ...l, side: 'ask' }} side="ask" />
-        ))}
-      </div>
+      {layoutMode === 'top-bottom' ? (
+        /* ── TOP/BOTTOM: asks above mid, bids below ── */
+        <>
+          <div className="overflow-y-auto" style={{ maxHeight: MAX_ROWS * ROW_H }}>
+            {asks.map((l, i) => <Row key={`ask-${i}`} level={{ ...l, side: 'ask' }} side="ask" />)}
+          </div>
 
-      {/* mid price separator */}
-      {mid != null && (
-        <div className="flex items-center justify-between px-3 py-1 bg-yellow-500/10 border-y border-yellow-500/30">
-          <span className="text-[11px] text-yellow-400 font-semibold">Mid</span>
-          <span className="text-[14px] text-yellow-300 font-bold font-mono">{fmtNum(mid, mid > 100 ? 2 : 6)}</span>
-          <span className="text-[11px] text-yellow-400 font-semibold">Mid</span>
+          {mid != null && (
+            <div className="flex items-center justify-between px-3 py-1 bg-yellow-500/10 border-y border-yellow-500/30 shrink-0">
+              <span className="text-[11px] text-yellow-400 font-semibold">Mid</span>
+              <span className="text-[14px] text-yellow-300 font-bold font-mono">{fmtNum(mid, mid > 100 ? 2 : 6)}</span>
+              <span className="text-[11px] text-yellow-400 font-semibold">Mid</span>
+            </div>
+          )}
+
+          <div className="overflow-y-auto" style={{ maxHeight: MAX_ROWS * ROW_H }}>
+            {bids.map((l, i) => <Row key={`bid-${i}`} level={{ ...l, side: 'bid' }} side="bid" />)}
+          </div>
+        </>
+      ) : (
+        /* ── LEFT/RIGHT: asks on left column, bids on right column ── */
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          {/* Left — Asks */}
+          <div className="flex-1 flex flex-col min-w-0 border-r border-terminal-border">
+            <div className="px-2 py-1 text-[10px] text-red-400 font-semibold border-b border-terminal-border bg-red-500/5 shrink-0">
+              ▲ Asks
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {/* show asks top-of-book last (closest to mid at bottom) */}
+              {asks.map((l, i) => <Row key={`ask-${i}`} level={{ ...l, side: 'ask' }} side="ask" />)}
+            </div>
+          </div>
+
+          {/* Mid divider */}
+          {mid != null && (
+            <div className="flex flex-col items-center justify-center w-24 shrink-0 bg-yellow-500/10 border-x border-yellow-500/30 px-1">
+              <span className="text-[10px] text-yellow-400 font-semibold rotate-0 text-center leading-tight">Mid</span>
+              <span className="text-[12px] text-yellow-300 font-bold font-mono text-center break-all leading-tight mt-1">
+                {fmtNum(mid, mid > 100 ? 2 : 6)}
+              </span>
+            </div>
+          )}
+
+          {/* Right — Bids */}
+          <div className="flex-1 flex flex-col min-w-0 border-l border-terminal-border">
+            <div className="px-2 py-1 text-[10px] text-emerald-400 font-semibold border-b border-terminal-border bg-emerald-500/5 shrink-0">
+              ▼ Bids
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {bids.map((l, i) => <Row key={`bid-${i}`} level={{ ...l, side: 'bid' }} side="bid" />)}
+            </div>
+          </div>
         </div>
       )}
-
-      {/* bids (green, bottom) */}
-      <div className="overflow-y-auto" style={{ maxHeight: MAX_ROWS * ROW_H }}>
-        {bids.map((l, i) => (
-          <Row key={`bid-${i}`} level={{ ...l, side: 'bid' }} side="bid" />
-        ))}
-      </div>
     </div>
   );
 }
@@ -348,11 +382,14 @@ function useLiveOB(symbol: string, enabled: boolean): OBDelta {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
+type LayoutMode = 'top-bottom' | 'left-right';
+
 export default function HeatmapTerminal() {
   const [symbol, setSymbol] = useState('BTCUSDT');
   const [symbolInput, setSymbolInput] = useState('BTCUSDT');
   const [liveEnabled, setLiveEnabled] = useState(true);
   const [showWalls, setShowWalls] = useState(true);
+  const [layout, setLayout] = useState<LayoutMode>('top-bottom');
 
   const qs = new URLSearchParams({ symbol });
   const { data: apiRes, isLoading } = useSWR<ApiRes>(
@@ -494,6 +531,15 @@ export default function HeatmapTerminal() {
             >
               Walls {showWalls ? 'ON' : 'OFF'}
             </button>
+
+            {/* Layout toggle */}
+            <button
+              onClick={() => setLayout((v) => v === 'top-bottom' ? 'left-right' : 'top-bottom')}
+              title="Toggle heatmap layout"
+              className="px-3 py-1.5 rounded text-xs border font-semibold transition-colors border-purple-500/40 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20"
+            >
+              {layout === 'top-bottom' ? '⇅ Top/Bot' : '⇄ L/R'}
+            </button>
           </div>
         </div>
       </div>
@@ -520,10 +566,15 @@ export default function HeatmapTerminal() {
       )}
 
       {/* ── Main grid ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className={`grid gap-4 ${layout === 'left-right' ? 'grid-cols-1 2xl:grid-cols-3' : 'grid-cols-1 xl:grid-cols-3'}`}>
 
         {/* Heatmap panel */}
-        <div className="xl:col-span-2 bg-terminal-panel border border-terminal-border rounded-lg flex flex-col overflow-hidden" style={{ minHeight: 700 }}>
+        <div
+          className={`bg-terminal-panel border border-terminal-border rounded-lg flex flex-col overflow-hidden ${
+            layout === 'left-right' ? '2xl:col-span-2' : 'xl:col-span-2'
+          }`}
+          style={{ minHeight: layout === 'left-right' ? 500 : 700 }}
+        >
           <div className="flex items-center justify-between px-4 py-2 border-b border-terminal-border">
             <div className="text-xs font-semibold text-terminal-accent">{symbol} — Depth Heatmap</div>
             {isLoading && <span className="text-[11px] text-gray-500 animate-pulse">Fetching…</span>}
@@ -548,6 +599,7 @@ export default function HeatmapTerminal() {
               mid={d.mid}
               bidWalls={showWalls ? d.bidWalls : []}
               askWalls={showWalls ? d.askWalls : []}
+              layoutMode={layout}
             />
           )}
         </div>
