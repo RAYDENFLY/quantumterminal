@@ -454,6 +454,181 @@ function computeWallSignals(
   });
 }
 
+// ─── Orderbook Imbalance ──────────────────────────────────────────────────────
+
+type ImbalanceResult = {
+  ratio: number;
+  bidVol: number;
+  askVol: number;
+  tier: 'strong-bull' | 'bull' | 'balanced' | 'bear' | 'strong-bear';
+  headline: string;
+  detail: string;
+  conclusion: string;
+};
+
+function computeImbalance(bidDepth: Level[], askDepth: Level[]): ImbalanceResult | null {
+  const bidVol = bidDepth.reduce((s, l) => s + l.notional, 0);
+  const askVol = askDepth.reduce((s, l) => s + l.notional, 0);
+  if (!askVol || !bidVol) return null;
+
+  const ratio = bidVol / askVol;
+
+  let tier: ImbalanceResult['tier'];
+  let headline: string;
+  let detail: string;
+  let conclusion: string;
+
+  if (ratio >= 2.0) {
+    tier = 'strong-bull';
+    headline = 'Strong bullish imbalance detected.';
+    detail = `Bid liquidity is ${ratio.toFixed(2)}× stronger than asks.`;
+    conclusion = 'Heavy buy-side dominance. Potential upward price pressure.';
+  } else if (ratio >= 1.5) {
+    tier = 'bull';
+    headline = 'Orderbook imbalance detected.';
+    detail = `Bid liquidity is ${ratio.toFixed(2)}× stronger than asks.`;
+    conclusion = 'Buy pressure dominates the current market.';
+  } else if (ratio >= 1.3) {
+    tier = 'bull';
+    headline = 'Mild bullish imbalance.';
+    detail = `Bid liquidity is ${ratio.toFixed(2)}× stronger than asks.`;
+    conclusion = 'Slight buy-side edge. Watch for continuation.';
+  } else if (ratio >= 0.7) {
+    tier = 'balanced';
+    headline = 'Orderbook is balanced.';
+    detail = `Bid/ask ratio is ${ratio.toFixed(2)}×.`;
+    conclusion = 'No dominant side. Market is in equilibrium.';
+  } else if (ratio >= 0.5) {
+    tier = 'bear';
+    headline = 'Mild bearish imbalance.';
+    detail = `Ask liquidity is ${(1 / ratio).toFixed(2)}× stronger than bids.`;
+    conclusion = 'Slight sell-side edge. Watch for downside pressure.';
+  } else {
+    tier = 'strong-bear';
+    headline = 'Strong bearish imbalance detected.';
+    detail = `Ask liquidity is ${(1 / ratio).toFixed(2)}× stronger than bids.`;
+    conclusion = 'Heavy sell-side dominance. Potential downward price pressure.';
+  }
+
+  return { ratio, bidVol, askVol, tier, headline, detail, conclusion };
+}
+
+function OBImbalancePanel({ bidDepth, askDepth }: {
+  bidDepth: Level[];
+  askDepth: Level[];
+}) {
+  const result = computeImbalance(bidDepth, askDepth);
+
+  const tierStyle = {
+    'strong-bull': {
+      bar: 'bg-emerald-400',
+      border: 'border-emerald-500/30 bg-emerald-500/5',
+      badge: 'bg-emerald-500/20 text-emerald-300',
+      icon: '▲▲',
+      label: 'STRONG BULL',
+      headCol: 'text-emerald-300',
+    },
+    'bull': {
+      bar: 'bg-emerald-500',
+      border: 'border-emerald-500/20 bg-emerald-500/5',
+      badge: 'bg-emerald-500/15 text-emerald-400',
+      icon: '▲',
+      label: 'BULLISH',
+      headCol: 'text-emerald-400',
+    },
+    'balanced': {
+      bar: 'bg-yellow-400',
+      border: 'border-yellow-500/20 bg-yellow-500/5',
+      badge: 'bg-yellow-500/15 text-yellow-300',
+      icon: '⇌',
+      label: 'BALANCED',
+      headCol: 'text-yellow-300',
+    },
+    'bear': {
+      bar: 'bg-red-500',
+      border: 'border-red-500/20 bg-red-500/5',
+      badge: 'bg-red-500/15 text-red-400',
+      icon: '▼',
+      label: 'BEARISH',
+      headCol: 'text-red-400',
+    },
+    'strong-bear': {
+      bar: 'bg-red-400',
+      border: 'border-red-500/30 bg-red-500/5',
+      badge: 'bg-red-500/20 text-red-300',
+      icon: '▼▼',
+      label: 'STRONG BEAR',
+      headCol: 'text-red-300',
+    },
+  };
+
+  return (
+    <div className="bg-terminal-panel border border-terminal-border rounded-lg p-4 space-y-3">
+      <div className="text-xs font-semibold text-terminal-accent">Orderbook Imbalance</div>
+
+      {!result ? (
+        <div className="text-xs text-gray-500">Insufficient depth data.</div>
+      ) : (
+        <>
+          {/* Bid vs Ask volume bar */}
+          <div>
+            <div className="flex justify-between text-[11px] mb-1">
+              <span className="text-emerald-400 font-semibold">Bids ${fmtK(result.bidVol)}</span>
+              <span className="text-gray-400 font-mono">{result.ratio.toFixed(3)}×</span>
+              <span className="text-red-400 font-semibold">Asks ${fmtK(result.askVol)}</span>
+            </div>
+            <div className="relative h-4 bg-red-500/30 rounded overflow-hidden">
+              {/* bid fill */}
+              <div
+                className={`absolute left-0 top-0 h-full ${tierStyle[result.tier].bar} transition-all duration-700`}
+                style={{ width: `${Math.min(100, (result.bidVol / (result.bidVol + result.askVol)) * 100).toFixed(1)}%` }}
+              />
+              {/* center line */}
+              <div className="absolute left-1/2 top-0 h-full w-px bg-white/20" />
+              <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white/70">
+                {((result.bidVol / (result.bidVol + result.askVol)) * 100).toFixed(1)}% bid
+              </div>
+            </div>
+          </div>
+
+          {/* Signal card */}
+          <div className={`rounded border px-3 py-2.5 space-y-1 ${tierStyle[result.tier].border}`}>
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${tierStyle[result.tier].badge}`}>
+                {tierStyle[result.tier].icon} {tierStyle[result.tier].label}
+              </span>
+            </div>
+            <div className={`text-[12px] font-semibold ${tierStyle[result.tier].headCol}`}>
+              {result.headline}
+            </div>
+            <div className="text-[11px] text-gray-300">{result.detail}</div>
+            <div className="text-[11px] text-gray-500 italic">{result.conclusion}</div>
+          </div>
+
+          {/* Ratio reference table */}
+          <div className="grid grid-cols-3 gap-1 text-[10px] text-center">
+            {[
+              { range: '≥ 1.5', label: 'Bullish', col: 'text-emerald-400', active: result.ratio >= 1.5 },
+              { range: '0.7–1.5', label: 'Balanced', col: 'text-yellow-400', active: result.ratio >= 0.7 && result.ratio < 1.5 },
+              { range: '< 0.7', label: 'Bearish', col: 'text-red-400', active: result.ratio < 0.7 },
+            ].map(({ range, label, col, active }) => (
+              <div
+                key={range}
+                className={`rounded px-1 py-1 border transition-colors ${
+                  active ? 'border-white/20 bg-white/5' : 'border-white/5 opacity-40'
+                }`}
+              >
+                <div className={`font-bold font-mono ${col}`}>{range}</div>
+                <div className="text-gray-500">{label}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function WallAnalysisPanel({ bidWalls, askWalls, mid }: {
   bidWalls: Wall[];
   askWalls: Wall[];
@@ -803,6 +978,12 @@ export default function HeatmapTerminal() {
               <div className="text-sm text-gray-500">No significant walls detected</div>
             )}
           </div>
+
+          {/* Orderbook Imbalance */}
+          <OBImbalancePanel
+            bidDepth={mergedBidDepth}
+            askDepth={mergedAskDepth}
+          />
 
           {/* Liquidity Wall Analysis */}
           <WallAnalysisPanel
